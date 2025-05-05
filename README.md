@@ -133,6 +133,8 @@ https://github.com/vHanda/google-keep-exporter
 Yeah, the whole thing got re-written in Dart, and now it's way more stable and faster. If you still want Python for some reason, check out v2.x - in releases/tags
 
 ### TODO (Pull Requests welcome):
-- [ ] GPS data: from JSON to Exif - ~~Thank you @DalenW 💖~~ still thank you, but it is now missing in the Dart version
-- [ ] Writing data from `.json`s back to `EXIF` data
+- [x] GPS data: from JSON to Exif - ~~Thank you @DalenW 💖~~ - Implemented by @Xentraxx
+- [x] Writing data from `.json`s back to `EXIF` data - Implemented by @Xentraxx
 - [x] Some way to handle albums - THANK YOU @bitsondatadev 😘 🎉 💃
+- [ ] Bringing back interactive unzipping
+- [ ] Integrating upload to Nextcloud

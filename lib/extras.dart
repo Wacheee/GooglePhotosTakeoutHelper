@@ -3,7 +3,7 @@ import 'package:unorm_dart/unorm_dart.dart' as unorm;
 
 import 'media.dart';
 
-const extraFormats = [
+const List<String> extraFormats = <String>[
   // EN/US - thanks @DalenW
   '-edited',
   '-effects',
@@ -31,12 +31,12 @@ const extraFormats = [
 
 /// Removes any media that match any of "extra" formats
 /// Returns count of removed
-int removeExtras(List<Media> media) {
-  final copy = media.toList();
-  var count = 0;
-  for (final m in copy) {
-    final name = p.withoutExtension(p.basename(m.firstFile.path)).toLowerCase();
-    for (final extra in extraFormats) {
+int removeExtras(final List<Media> media) {
+  final List<Media> copy = media.toList();
+  int count = 0;
+  for (final Media m in copy) {
+    final String name = p.withoutExtension(p.basename(m.firstFile.path)).toLowerCase();
+    for (final String extra in extraFormats) {
       // MacOS uses NFD that doesn't work with our accents 🙃🙃
       // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/247
       if (unorm.nfc(name).endsWith(extra)) {

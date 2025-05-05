@@ -11,40 +11,42 @@
 ///    - extra \n are added in main file
 /// - ...detect when something is wrong (f.e. disk space) and quit whole program
 /// - ...are as single-job as it's appropriate - main file calls them one by one
+library;
 import 'dart:async';
 import 'dart:io';
 
 // @Deprecated('Interactive unzipping is suspended for now!')
 // import 'package:archive/archive_io.dart';
 import 'package:file_picker_desktop/file_picker_desktop.dart';
-import 'package:gpth/utils.dart';
 import 'package:path/path.dart' as p;
 
-const albumOptions = {
-  'shortcut': '[Recommended] Album folders with shortcuts/symlinks to '
-      'original photos. Recommended as it will take the least space, but '
-      'may not be portable when moving across systems/computes/phones etc',
-  'duplicate-copy': 'Album folders with photos copied into them. '
-      'This will work across all systems, but may take wayyy more space!!',
-  'json': "Put ALL photos (including Archive and Trash) in one folder and "
-      "make a .json file with info about albums. "
-      "Use if you're a programmer, or just want to get everything, "
-      "ignoring lack of year-folders etc.",
-  'nothing': 'Just ignore them and put year-photos into one folder. '
-      'WARNING: This ignores Archive/Trash !!!',
-  'reverse-shortcut': 'Album folders with ORIGINAL photos. "ALL_PHOTOS" folder '
-      'with shortcuts/symlinks to albums. If a photo is not in an album, '
-      'the original is saved. CAUTION: If a photo is in multiple albums, it will '
-      'be duplicated in the other albums, and the shortcuts/symlinks in '
-      '"ALL_PHOTOS" will point only to one album.',
+import 'utils.dart';
+
+const Map<String, String> albumOptions = <String, String>{
+  'shortcut': '[Recommended] Album folders with shortcuts/symlinks to \n'
+      'original photos. \nRecommended as it will take the least space, but \n'
+      'may not be portable when moving across systems/computes/phones etc\n',
+  'duplicate-copy': 'Album folders with photos copied into them. \n'
+      'This will work across all systems, but may take wayyy more space!!\n',
+  'json': 'Put ALL photos (including Archive and Trash) in one folder and \n'
+      'make a .json file with info about albums. \n'
+      "Use if you're a programmer, or just want to get everything, \n"
+      'ignoring lack of year-folders etc.\n',
+  'nothing': 'Just ignore them and put year-photos into one folder. \n'
+      'WARNING: This ignores Archive/Trash !!!\n',
+  'reverse-shortcut': 'Album folders with ORIGINAL photos. "ALL_PHOTOS" folder \n'
+      'with shortcuts/symlinks to albums. If a photo is not in an album, \n'
+      'the original is saved. CAUTION: If a photo is in multiple albums, it will \n'
+      'be duplicated in the other albums, and the shortcuts/symlinks in \n'
+      '"ALL_PHOTOS" will point only to one album.\n',
 };
 
 /// Whether we are, indeed, running interactive (or not)
-var indeed = false;
+bool indeed = false;
 
 /// Shorthand for Future.delayed
-Future<void> sleep(num seconds) =>
-    Future.delayed(Duration(milliseconds: (seconds * 1000).toInt()));
+Future<void> sleep(final num seconds) =>
+    Future<void>.delayed(Duration(milliseconds: (seconds * 1000).toInt()));
 
 void pressEnterToContinue() {
   print('[press enter to continue]');
@@ -75,17 +77,17 @@ Future<void> greet() async {
 Future<void> nothingFoundMessage() async {
   print('...oh :(');
   print('...');
-  print("I couldn't find any D: reasons for this may be:");
+  print("8 I couldn't find any D: reasons for this may be:");
   if (indeed) {
     print(
       "  - you've already ran gpth and it moved all photos to output -\n"
-      "    delete the input folder and re-extract the zip",
+      '    delete the input folder and re-extract the zip',
     );
   }
   print(
     "  - your Takeout doesn't have any \"year folders\" -\n"
-    "    visit https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper\n"
-    "    again and request new, correct Takeout",
+    '    visit https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper\n'
+    '    again and request new, correct Takeout',
   );
   print('After fixing this, go ahead and try again :)');
 }
@@ -95,14 +97,14 @@ Future<Directory> getInputDir() async {
   print('(Make sure they are merged => there is only one "Takeout" folder!)');
   await sleep(1);
   pressEnterToContinue();
-  final dir = await getDirectoryPath(dialogTitle: 'Select unzipped folder:');
+  final String? dir = await getDirectoryPath(dialogTitle: 'Select unzipped folder:');
   await sleep(1);
   if (dir == null) {
     error('Duh, something went wrong with selecting - try again!');
     return getOutput();
   }
   print('Cool!');
-  sleep(1);
+  await sleep(1);
   return Directory(dir);
 }
 
@@ -113,10 +115,10 @@ Future<List<File>> getZips() async {
       '(use Ctrl to select multiple)');
   await sleep(2);
   pressEnterToContinue();
-  final files = await pickFiles(
+  final FilePickerResult? files = await pickFiles(
     dialogTitle: 'Select all Takeout zips:',
     type: FileType.custom,
-    allowedExtensions: ['zip', 'tgz'],
+    allowedExtensions: <String>['zip', 'tgz'],
     allowMultiple: true,
   );
   await sleep(1);
@@ -130,15 +132,15 @@ Future<List<File>> getZips() async {
   }
   if (files.count == 1) {
     print("You selected only one zip - if that's only one you have, it's cool, "
-        "but if you have multiple, Ctrl-C to exit gpth, and select them "
-        "*all* again (with Ctrl)");
+        'but if you have multiple, Ctrl-C to exit gpth, and select them '
+        '*all* again (with Ctrl)');
     await sleep(5);
     pressEnterToContinue();
   }
-  if (!files.files.every((e) =>
+  if (!files.files.every((final PlatformFile e) =>
       File(e.path!).statSync().type == FileSystemEntityType.file &&
       RegExp(r'\.(zip|tgz)$').hasMatch(e.path!))) {
-    print('Files: [${files.files.map((e) => p.basename(e.path!)).join(', ')}]');
+    print('Files: [${files.files.map((final PlatformFile e) => p.basename(e.path!)).join(', ')}]');
     error('Not all files you selected are zips :/ please do this again');
     quit(6969);
   }
@@ -146,11 +148,11 @@ Future<List<File>> getZips() async {
   print('Cool! Selected ${files.count} zips => '
       '${filesize(
     files.files
-        .map((e) => File(e.path!).statSync().size)
-        .reduce((a, b) => a + b),
+        .map((final PlatformFile e) => File(e.path!).statSync().size)
+        .reduce((final int a, final int b) => a + b),
   )}');
   await sleep(1);
-  return files.files.map((e) => File(e.path!)).toList();
+  return files.files.map((final PlatformFile e) => File(e.path!)).toList();
 }
 
 /// Asks user for output folder with ui dialogs
@@ -159,14 +161,14 @@ Future<Directory> getOutput() async {
       '(note: GPTH will *move* your photos - no extra space will be taken ;)');
   await sleep(1);
   pressEnterToContinue();
-  final dir = await getDirectoryPath(dialogTitle: 'Select output folder:');
+  final String? dir = await getDirectoryPath(dialogTitle: 'Select output folder:');
   await sleep(1);
   if (dir == null) {
     error('Duh, something went wrong with selecting - try again!');
     return getOutput();
   }
   print('Cool!');
-  sleep(1);
+  await sleep(1);
   return Directory(dir);
 }
 
@@ -178,7 +180,7 @@ Future<num> askDivideDates() async {
   print('[3] - year/month folders');
   print('[3] - year/month/day folders');
   print('(Type a number or press enter for default):');
-  final answer = await askForInt();
+  final String answer = await askForInt();
   switch (answer) {
     case '1':
     case '':
@@ -209,7 +211,7 @@ Future<bool> askModifyJson() async {
       '[1] (Erase suffix) - [Recommended] Yes, the photos have the suffix "supplemental-metadata"');
   print('[2] (Dont Erease suffix) - No');
   print('(Type a number or press enter for default):');
-  final answer = await askForInt();
+  final String answer = await askForInt();
   switch (answer) {
     case '1':
     case '':
@@ -226,16 +228,16 @@ Future<bool> askModifyJson() async {
 
 Future<String> askAlbums() async {
   print('What should be done with albums?');
-  var i = 0;
-  for (final entry in albumOptions.entries) {
+  int i = 0;
+  for (final MapEntry<String, String> entry in albumOptions.entries) {
     print('[${i++}] ${entry.key}: ${entry.value}');
   }
-  final answer = int.tryParse(await askForInt());
+  final int? answer = int.tryParse(await askForInt());
   if (answer == null || answer < 0 || answer >= albumOptions.length) {
     error('Invalid answer - try again');
     return askAlbums();
   }
-  final choice = albumOptions.keys.elementAt(answer);
+  final String choice = albumOptions.keys.elementAt(answer);
   print('Okay, doing: $choice');
   return choice;
 }
@@ -246,7 +248,7 @@ Future<bool> askForCleanOutput() async {
   print('[1] - delete *all* files inside output folder and continue');
   print('[2] - continue as usual - put output files alongside existing');
   print('[3] - exit program to examine situation yourself');
-  final answer = stdin
+  final String answer = stdin
       .readLineSync()!
       .replaceAll('[', '')
       .replaceAll(']', '')
@@ -275,7 +277,7 @@ Future<bool> askTransformPixelMP() async {
   print('[1] (default) - no, keep original extension');
   print('[2] - yes, change extension to .mp4');
   print('(Type 1 or 2 or press enter for default):');
-  final answer = await askForInt();
+  final String answer = await askForInt();
   switch (answer) {
     case '1':
     case '':
@@ -299,7 +301,7 @@ Future<bool> askChangeCreationTime() async {
   print('[1] (Default) - No, don\'t update creation time');
   print('[2] - Yes, update creation time to match modified time');
   print('(Type 1 or 2, or press enter for default):');
-  final answer = await askForInt();
+  final String answer = await askForInt();
   switch (answer) {
     case '1':
     case '':
@@ -316,8 +318,8 @@ Future<bool> askChangeCreationTime() async {
 
 /// Checks free space on disk and notifies user accordingly
 @Deprecated('Interactive unzipping is suspended for now!')
-Future<void> freeSpaceNotice(int required, Directory dir) async {
-  final freeSpace = await getDiskFree(dir.path);
+Future<void> freeSpaceNotice(final int required, final Directory dir) async {
+  final int? freeSpace = await getDiskFree(dir.path);
   if (freeSpace == null) {
     print(
       'Note: everything will take ~${filesize(required)} of disk space - '
@@ -346,7 +348,7 @@ Future<void> freeSpaceNotice(int required, Directory dir) async {
 
 /// Unzips all zips to given folder (creates it if needed)
 @Deprecated('Interactive unzipping is suspended for now!')
-Future<void> unzip(List<File> zips, Directory dir) async {
+Future<void> unzip(final List<File> zips, final Directory dir) async {
   throw UnimplementedError();
   // if (await dir.exists()) await dir.delete(recursive: true);
   // await dir.create(recursive: true);

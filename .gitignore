@@ -13,3 +13,7 @@ photos/
 ALL_PHOTOS/
 output/
 *.log
+pubspec.lock
+/*.jpg
+/*.json
+/Vacation
