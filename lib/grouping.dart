@@ -1,12 +1,14 @@
 /// This files contains functions for removing duplicates and detecting albums
 ///
 /// That's because their logic looks very similar and they share code
+library;
 
 import 'dart:io';
-
 import 'package:collection/collection.dart';
-import 'package:gpth/media.dart';
 import 'package:path/path.dart' as p;
+import 'media.dart' show Media;
+import 'media.dart';
+import 'utils.dart';
 
 extension Group on Iterable<Media> {
   /// This groups your media into map where key is something that they share
@@ -18,16 +20,19 @@ extension Group on Iterable<Media> {
   /// Groups may be 1-lenght, where element was unique, or n-lenght where there
   /// were duplicates
   Map<String, List<Media>> groupIdentical() {
-    final output = <String, List<Media>>{};
+    final Map<String, List<Media>> output = <String, List<Media>>{};
     // group files by size - can't have same hash with diff size
     // ignore: unnecessary_this
-    for (final sameSize in this.groupListsBy((e) => e.size).entries) {
+    for (final MapEntry<int, List<Media>> sameSize
+        in groupListsBy((final Media e) => e.size).entries) {
       // just add with "...bytes" key if just one
       if (sameSize.value.length <= 1) {
         output['${sameSize.key}bytes'] = sameSize.value;
       } else {
         // ...calculate their full hashes and group by them
-        output.addAll(sameSize.value.groupListsBy((e) => e.hash.toString()));
+        output.addAll(
+          sameSize.value.groupListsBy((final Media e) => e.hash.toString()),
+        );
       }
     }
     return output;
@@ -43,59 +48,69 @@ extension Group on Iterable<Media> {
 /// Uses file size, then sha256 hash to distinct
 ///
 /// Returns count of removed
-int removeDuplicates(List<Media> media) {
-  var count = 0;
-  final byAlbum = media
+int removeDuplicates(final List<Media> media, final int barWidth) {
+  int count = 0;
+
+  final Iterable<Iterable<List<Media>>> byAlbum = media
       // group by albums as we will merge those later
       // (to *not* compare hashes between albums)
-      .groupListsBy((e) => e.files.keys.first)
+      .groupListsBy((final Media e) => e.files.keys.first)
       .values
       // group by hash
-      .map((albumGroup) => albumGroup.groupIdentical().values);
+      .map(
+        (final List<Media> albumGroup) => albumGroup.groupIdentical().values,
+      );
   // we don't care about album organization now - flatten
   final Iterable<List<Media>> hashGroups = byAlbum.flattened;
-  for (final group in hashGroups) {
+
+  for (final List<Media> group in hashGroups) {
     // sort by best date extraction, then file name length
     // using strings to sort by two values is a sneaky trick i learned at
     // https://stackoverflow.com/questions/55920677/how-to-sort-a-list-based-on-two-values
 
     // note: we are comparing accuracy here tho we do know that *all*
     // of them have it null - i'm leaving this just for sake
-    group.sort((a, b) =>
-        '${a.dateTakenAccuracy ?? 999}${p.basename(a.firstFile.path).length}'
-            .compareTo(
-                '${b.dateTakenAccuracy ?? 999}${p.basename(b.firstFile.path).length}'));
+    group.sort(
+      (
+        final Media a,
+        final Media b,
+      ) => '${a.dateTakenAccuracy ?? 999}${p.basename(a.firstFile.path).length}'
+          .compareTo(
+            '${b.dateTakenAccuracy ?? 999}${p.basename(b.firstFile.path).length}',
+          ),
+    );
     // get list of all except first
-    for (final e in group.sublist(1)) {
+    for (final Media e in group.sublist(1)) {
       // remove them from media
       media.remove(e);
+      log('[Step 3/8] Skipping duplicate: ${e.firstFile.path}');
       count++;
     }
   }
-
   return count;
 }
 
-String albumName(Directory albumDir) => p.basename(albumDir.path);
+String albumName(final Directory albumDir) => p.basename(albumDir.path);
 
 /// This will analyze [allMedia], find which files are hash-same, and merge
 /// all of them into single [Media] object with all album names they had
-void findAlbums(List<Media> allMedia) {
-  for (final group in allMedia.groupIdentical().values) {
+void findAlbums(final List<Media> allMedia) {
+  for (final List<Media> group in allMedia.groupIdentical().values) {
     if (group.length <= 1) continue; // then this isn't a group
     // now, we have [group] list that contains actual sauce:
 
-    final allFiles = group.fold(
+    final Map<String?, File> allFiles = group.fold(
       <String?, File>{},
-      (allFiles, e) => allFiles..addAll(e.files),
+      (final Map<String?, File> allFiles, final Media e) =>
+          allFiles..addAll(e.files),
     );
     // sort by best date extraction
-    group.sort((a, b) =>
-        (a.dateTakenAccuracy ?? 999).compareTo((b.dateTakenAccuracy ?? 999)));
+    group.sort(
+      (final Media a, final Media b) =>
+          (a.dateTakenAccuracy ?? 999).compareTo(b.dateTakenAccuracy ?? 999),
+    );
     // remove original dirty ones
-    for (final e in group) {
-      allMedia.remove(e);
-    }
+    allMedia.removeWhere(group.contains);
     // set the first (best) one complete album list
     group.first.files = allFiles;
     // add our one, precious ✨perfect✨ one

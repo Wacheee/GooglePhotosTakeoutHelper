@@ -52,18 +52,6 @@ If you want to run it on Synology, have problems with interactive, or just love 
      ```
 
    **Fun fact:** `gpth` *moves* files around by default - so if anything goes wrong mid-way, re-export the zips again :pray:
-     
-### 5. Most of your photos should have correct original EXIFs (metadata), but if you want, you can insert them everywhere with `exiftool`, so you won't lose their creation time
-   - Download Phil Harvey's exiftool: https://exiftool.sourceforge.net/
-   - Open the cmd/terminal, and run
-     ```bash
-     # cd to folder where you downloaded exiftool
-     cd Downloads
-     # run it on your output folder:
-     # (the '-r' means "run on all files/in sub-folders" aka recursively)
-     # (Make sure you didn't change file modify dates aka didn't do anything with the files after running gpth
-     exiftool -overwrite_original -r -if 'not defined DateTimeOriginal' -P "-AllDates<FileModifyDate" "your/output/folder/ALL_PHOTOS/"
-     ```
 
 Done! Enjoy your photos!!!
 
@@ -133,6 +121,8 @@ https://github.com/vHanda/google-keep-exporter
 Yeah, the whole thing got re-written in Dart, and now it's way more stable and faster. If you still want Python for some reason, check out v2.x - in releases/tags
 
 ### TODO (Pull Requests welcome):
-- [ ] GPS data: from JSON to Exif - ~~Thank you @DalenW 💖~~ still thank you, but it is now missing in the Dart version
-- [ ] Writing data from `.json`s back to `EXIF` data
+- [x] GPS data: from JSON to Exif - ~~Thank you @DalenW 💖~~ - Implemented by @Xentraxx
+- [x] Writing data from `.json`s back to `EXIF` data - Implemented by @Xentraxx
 - [x] Some way to handle albums - THANK YOU @bitsondatadev 😘 🎉 💃
+- [ ] Bringing back interactive unzipping
+- [ ] Integrating upload to Nextcloud

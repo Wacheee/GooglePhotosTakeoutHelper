@@ -1,3 +1,215 @@
+## 4.0.0-wacheee (by Xentraxx)
+
+### Fork/Alternate version 
+
+### This change is a big overhaul of the project, so only the major improvements or potential breaking changes are mentioned
+
+#### Tl;dr
+
+- Added support for reading EXIF data from JXL (JPEG XL), ARW, RAW, DNG, CRW, CR3, NRW, NEF and RAF files internally.
+- Adeded support for reading and writing coordinates and DateTime from and to exif for almost all file formats.
+- Added a "--write-exif" flag which will write missing EXIF information (coordinates and DateTime) from json to EXIF for jpg and jpeg files
+- Added support to get DateTime from .MOV, .MP4 and probably many other video formats through exiftool. You need to download it yourself (e.g. from here: https://exiftool.org/), rename it to exiftool.exe and make sure the folder you keep it in is in your $PATH variable or in the same folder as gpth.
+- Added verbose mode (--verbose or -v)
+- File size is not limited anymore by default but can be limited using the --limit-filesize flag for systems with low RAM (like a NAS).
+
+#### General improvements
+
+- upgraded dependencies and fixed breaking changes
+- updated dart to a minimum version of 3.8.0 of the dart SDK
+- included image, intl and coordinate_converter packages
+- applied a list of coding best practices through lint rules to code
+- added/edited a bunch of comments and changed unnecessary print() to log() for debugging and a better user experience
+- Divided code in steps through comments and included steps in output for readability, debuggability and to make it easier to follow the code
+- checked TODOs in README.md
+- Added TODOs to look into in code through //TODO comments
+- moved json_extractor file into date_extractor folder
+- added unit tests for new write-exif functionality
+- made CLI --help output more readable through line breaks
+- renamed some variables/functions to better reflect their purpose
+- moved step 8 (update creation time) before final output
+- added output how often DateTime and Coordinates have been written in EXIF at the final output
+- changed that test data will be created in test subfolder instead of project root directory
+- Added consistent log levels to log output to quickly differenciate between informational and error logs
+- Added logging of elapsed time for each step.
+- Exposed the maxFileSize flag as an argument (--limit-filesize) to set if necessary, It's now deactivated by default to support larger files like videos.
+- Added DateTime extraction method statistics to the final output - shows how many files had their dates extracted through which method
+- Added elapsed time logging for each processing step
+
+#### Bug fixes
+
+- fixed existing unit tests which would fail on windows
+
+#### Added functionality
+
+- Support for writing coordinates and DateTime to EXIF
+  - Added new CLI option "--write-exif".
+  - When enabled, the script will check if the associated json of any given file contains coordinates and if the file does not yet have them in its EXIF data, the script will add them.
+  - When enabled, the script will check if a DateTime has been extracted from any of the given extraction methods and if the file has no EXIF DateTime set, it will add the DateTime to the EXIF data 'DateTime', 'DateTimeOriginal'and 'DateTimeDigitized'.
+  - Added verbose mode (--verbose or -v) with log levels info, warning and error.
+
+- Moved from the stale "exif" package to "exif_reader" for dart local exif reading, the image library for local jpeg exif writing and the external exiftool for all other EXIF reading and writing (images and videos)
+  - The move to exif_reader adds support for extracting DateTime from JXL (JPEG XL), ARW, RAW, DNG, CRW, CR3, NRW, NEF and RAF files, and video formats like MOV, MP4, etc.
+  - Exiftool needs to be in $PATH variable or in the same folder as the running binary. If not, that's okay. Then we fall back to exif_reader. But if you have ExifTool locally, Google Photos Takeout Helper now supports reading CreatedDateTime EXIF data for almost all media formats.
+
+- Added new interactive prompts:
+  - Option to write EXIF data to files (--write-exif)
+  - Option to limit file size for systems with low RAM (--limit-filesize)
+
+##### *Previous fixes and improvement (from 3.4.3-wacheee to 4.0.0-wacheee)*
+- *added macOS executables supporting both ARM64 and Intel architectures https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/310 https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/396#issuecomment-2787459117*
+- *fixed an exception when using GPTH with command-line arguments https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/5 https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/8*
+- *the "fix JSON metadata files" option can now be configured using command-line arguments https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/7 https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/9*
+- *if `shortcut` option is selected, shortcut creation will be 10 times faster on Windows platforms (new creation method that avoids using PowerShell). For more details: [TheLastGimbus#390](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/390)*
+- *fixed issues with folder names containing emojis  💖🤖🚀on Windows #389*
+- *added an interactive option to update the creation times of files in the output folder to match their last modified times at the end of the program (only on Windows) #371*
+- *if a media is not in a year folder it establishes one from an album to move it to ALL_PHOTOS correctly. This will move the original media file directly from the album (or one of those albums) to ALL_PHOTOS and create a shortcut in the output album folder (if shortcut option is selected) #261*
+- *added support for moving or copying files with the following extensions to the output folder: .MP, .MV, .DNG, and .CR2 #381 #324 #180 #271*
+- *added an interactive option to convert Pixel Motion Photo files (.MP or .MV) to .mp4*
+- *added an option to remove the "supplemental-metadata" suffix from JSON to prevent issues with metadata #353 #355*
+- *fixed shortcut issue on Windows platforms #248*
+- *added more options for date-based folders [year, month, day] #238 (based in this commit [`More granular date folders #299`](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/299/commits/d06fe73101845acd650bc025d2977b96bbd1bf1d))*
+- *added reverse-shortcut option, now you can mantain original photo in album folders and create a shortcut in year albums*
+  
+##### *Limitations:*
+- *if album mode is set to duplicate-copy, it will move the album photos to the album folder (as usual), but ALL_PHOTOS will not contain them if the media is not in a year album.*
+- *it does not fix issues related to reading JSON files (if necessary) for Motion Photo files; however, if the dates are included in the file name (as with Pixel Motion Photos), the correct dates will be established.*
+- *No interactive unzipping*
+
+## 3.6.2-wacheee
+
+### Fork/Alternate version 
+#### macOS executables
+
+- added macOS executables supporting both ARM64 and Intel architectures https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/310 https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/396#issuecomment-2787459117
+  
+##### *Previous fixes and improvement (from 3.4.3-wacheee to 3.6.1-wacheee)*
+- *fixed an exception when using GPTH with command-line arguments https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/5 https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/8*
+- *the "fix JSON metadata files" option can now be configured using command-line arguments https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/7 https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/9*
+- *if `shortcut` option is selected, shortcut creation will be 10 times faster on Windows platforms (new creation method that avoids using PowerShell). For more details: [TheLastGimbus#390](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/390)*
+- *fixed issues with folder names containing emojis  💖🤖🚀on Windows #389*
+- *added an interactive option to update the creation times of files in the output folder to match their last modified times at the end of the program (only on Windows) #371*
+- *if a media is not in a year folder it establishes one from an album to move it to ALL_PHOTOS correctly. This will move the original media file directly from the album (or one of those albums) to ALL_PHOTOS and create a shortcut in the output album folder (if shortcut option is selected) #261*
+- *added support for moving or copying files with the following extensions to the output folder: .MP, .MV, .DNG, and .CR2 #381 #324 #180 #271*
+- *added an interactive option to convert Pixel Motion Photo files (.MP or .MV) to .mp4*
+- *added an option to remove the "supplemental-metadata" suffix from JSON to prevent issues with metadata #353 #355*
+- *fixed shortcut issue on Windows platforms #248*
+- *added more options for date-based folders [year, month, day] #238 (based in this commit [`More granular date folders #299`](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/299/commits/d06fe73101845acd650bc025d2977b96bbd1bf1d))*
+- *added reverse-shortcut option, now you can mantain original photo in album folders and create a shortcut in year albums*
+  
+##### *Limitations (previous fixes):*
+- *if album mode is set to duplicate-copy, it will move the album photos to the album folder (as usual), but ALL_PHOTOS will not contain them if the media is not in a year album.*
+- *it does not fix issues related to reading JSON files (if necessary) for Motion Photo files; however, if the dates are included in the file name (as with Pixel Motion Photos), the correct dates will be established.*
+
+## 3.6.1-wacheee
+
+### Fork/Alternate version 
+#### Fixes for Command-Line Arguments
+
+- fixed an exception when using GPTH with command-line arguments https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/5 https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/8
+- the "fix JSON metadata files" option can now be configured using command-line arguments https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/7 https://github.com/Wacheee/GooglePhotosTakeoutHelper/issues/9
+  
+##### *Previous fixes and improvement (from 3.4.3-wacheee to 3.6.0-wacheee)*
+- *if `shortcut` option is selected, shortcut creation will be 10 times faster on Windows platforms (new creation method that avoids using PowerShell). For more details: [TheLastGimbus#390](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/390)*
+- *fixed issues with folder names containing emojis  💖🤖🚀on Windows #389*
+- *added an interactive option to update the creation times of files in the output folder to match their last modified times at the end of the program (only on Windows) #371*
+- *if a media is not in a year folder it establishes one from an album to move it to ALL_PHOTOS correctly. This will move the original media file directly from the album (or one of those albums) to ALL_PHOTOS and create a shortcut in the output album folder (if shortcut option is selected) #261*
+- *added support for moving or copying files with the following extensions to the output folder: .MP, .MV, .DNG, and .CR2 #381 #324 #180 #271*
+- *added an interactive option to convert Pixel Motion Photo files (.MP or .MV) to .mp4*
+- *added an option to remove the "supplemental-metadata" suffix from JSON to prevent issues with metadata #353 #355*
+- *fixed shortcut issue on Windows platforms #248*
+- *added more options for date-based folders [year, month, day] #238 (based in this commit [`More granular date folders #299`](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/299/commits/d06fe73101845acd650bc025d2977b96bbd1bf1d))*
+- *added reverse-shortcut option, now you can mantain original photo in album folders and create a shortcut in year albums*
+  
+##### *Limitations (previous fixes):*
+- *if album mode is set to duplicate-copy, it will move the album photos to the album folder (as usual), but ALL_PHOTOS will not contain them if the media is not in a year album.*
+- *it does not fix issues related to reading JSON files (if necessary) for Motion Photo files; however, if the dates are included in the file name (as with Pixel Motion Photos), the correct dates will be established.*
+
+### Fork/Alternate version 
+#### Windows: 10x faster shortcut creation and other fixes
+
+- if `shortcut` option is selected, shortcut creation will be 10 times faster on Windows platforms (new creation method that avoids using PowerShell). For more details: [TheLastGimbus#390](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/390)
+- fixed issues with folder names containing emojis  💖🤖🚀on Windows #389
+  
+##### *Previous fixes and improvement (from 3.4.3-wacheee to 3.5.2-wacheee)*
+- *added an interactive option to update the creation times of files in the output folder to match their last modified times at the end of the program (only on Windows) #371*
+- *if a media is not in a year folder it establishes one from an album to move it to ALL_PHOTOS correctly. This will move the original media file directly from the album (or one of those albums) to ALL_PHOTOS and create a shortcut in the output album folder (if shortcut option is selected) #261*
+- *added support for moving or copying files with the following extensions to the output folder: .MP, .MV, .DNG, and .CR2 #381 #324 #180 #271*
+- *added an interactive option to convert Pixel Motion Photo files (.MP or .MV) to .mp4*
+- *added an option to remove the "supplemental-metadata" suffix from JSON to prevent issues with metadata #353 #355*
+- *fixed shortcut issue on Windows platforms #248*
+- *added more options for date-based folders [year, month, day] #238 (based in this commit [`More granular date folders #299`](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/299/commits/d06fe73101845acd650bc025d2977b96bbd1bf1d))*
+- *added reverse-shortcut option, now you can mantain original photo in album folders and create a shortcut in year albums*
+  
+##### *Limitations (previous fixes):*
+- *if album mode is set to duplicate-copy, it will move the album photos to the album folder (as usual), but ALL_PHOTOS will not contain them if the media is not in a year album.*
+- *it does not fix issues related to reading JSON files (if necessary) for Motion Photo files; however, if the dates are included in the file name (as with Pixel Motion Photos), the correct dates will be established.*
+
+## 3.5.2-wacheee
+
+### Fork/Alternate version 
+#### New option to update creation time at the end of program - Windows only
+
+- added an interactive option to update the creation times of files in the output folder to match their last modified times at the end of the program #371
+
+Limitations:
+- only works for Windows right now
+  
+##### *Previous fixes and improvement (from 3.4.3-wacheee to 3.5.1-wacheee)*
+- *if a media is not in a year folder it establishes one from an album to move it to ALL_PHOTOS correctly. This will move the original media file directly from the album (or one of those albums) to ALL_PHOTOS and create a shortcut in the output album folder (if shortcut option is selected) #261*
+- *added support for moving or copying files with the following extensions to the output folder: .MP, .MV, .DNG, and .CR2 #381 #324 #180 #271*
+- *added an interactive option to convert Pixel Motion Photo files (.MP or .MV) to .mp4*
+- *added an option to remove the "supplemental-metadata" suffix from JSON to prevent issues with metadata #353 #355*
+- *fixed shortcut issue on Windows platforms #248*
+- *added more options for date-based folders [year, month, day] #238 (based in this commit [`More granular date folders #299`](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/299/commits/d06fe73101845acd650bc025d2977b96bbd1bf1d))*
+- *added reverse-shortcut option, now you can mantain original photo in album folders and create a shortcut in year albums*
+  
+##### *Limitations (previous fixes):*
+- *if album mode is set to duplicate-copy, it will move the album photos to the album folder (as usual), but ALL_PHOTOS will not contain them if the media is not in a year album.*
+- *it does not fix issues related to reading JSON files (if necessary) for Motion Photo files; however, if the dates are included in the file name (as with Pixel Motion Photos), the correct dates will be established.*
+
+## 3.5.1-wacheee
+
+### Fork/Alternate version 
+#### Always move to ALL_PHOTOS even if it is not present in year album
+
+- if a media is not in a year folder it establishes one from an album to move it to ALL_PHOTOS correctly. This will move the original media file directly from the album (or one of those albums) to ALL_PHOTOS and create a shortcut in the output album folder (if shortcut option is selected) #261
+
+Limitations:
+- if album mode is set to duplicate-copy, it will move the album photos to the album folder (as usual), but ALL_PHOTOS will not contain them if the media is not in a year album.
+  
+##### *Previous fixes (3.4.3-wacheee - 3.5.0-wacheee)*
+- *added support for moving or copying files with the following extensions to the output folder: .MP, .MV, .DNG, and .CR2 #381 #324 #180 #271*
+- *added an interactive option to convert Pixel Motion Photo files (.MP or .MV) to .mp4*
+- *added an option to remove the "supplemental-metadata" suffix from JSON to prevent issues with metadata #353 #355*
+- *fixed shortcut issue on Windows platforms #248*
+- *added more options for date-based folders [year, month, day] #238 (based in this commit [`More granular date folders #299`](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/299/commits/d06fe73101845acd650bc025d2977b96bbd1bf1d))*
+- *added reverse-shortcut option, now you can mantain original photo in album folders and create a shortcut in year albums*
+  
+##### *Limitations (previous fixes):*
+- *it does not fix issues related to reading JSON files (if necessary) for Motion Photo files; however, if the dates are included in the file name (as with Pixel Motion Photos), the correct dates will be established.*
+
+## 3.5.0-wacheee
+
+### Fork/Alternate version 
+#### Convert Pixel Motion Photo files Option - More extensions supported 
+
+- added support for moving or copying files with the following extensions to the output folder: .MP, .MV, .DNG, and .CR2 #381 #324 #180 #271
+- added an interactive option to convert Pixel Motion Photo files (.MP or .MV) to .mp4
+
+Limitations:
+- it does not fix issues related to reading JSON files (if necessary) for Motion Photo files; however, if the dates are included in the file name (as with Pixel Motion Photos), the correct dates will be established.
+
+## 3.4.3-wacheee
+
+### Fork/Alternate version from original 
+#### Bug fixes
+
+- added an option to remove the "supplemental-metadata" suffix from JSON to prevent issues with metadata #353 #355
+- fixed shortcut issue on Windows platforms #248
+- added more options for date-based folders [year, month, day] #238 (based in this commit [`More granular date folders #299`](https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/299/commits/d06fe73101845acd650bc025d2977b96bbd1bf1d))
+- added reverse-shortcut option, now you can mantain original photo in album folders and create a shortcut in year albums
+
 ## 3.4.3
 
 ### Just a few patches ❤️‍🩹
