@@ -43,6 +43,23 @@ AQACEQMRAD8AIcgXf//Z""";
   final imgFile6 = File('IMG-20150125-WA0003-modifié.jpg');
   final imgFile6_1 = File('IMG-20150125-WA0003-modifié(1).jpg');
   final jsonFile6 = File('IMG-20150125-WA0003.jpg.json');
+
+  final imgFile7 = File('img1.jpg');
+  final jsonFile7 = File('img1.jpg.supplemental-metadata.json');
+  final imgFile8 = File('img2(18).jpg');
+  final jsonFile8 = File('img2.jpg.supplemental-metadata(18).json');
+  final imgFile9 = File('video_0_8b087326d8ad465c97f039ec4ef1ab48.mp4');
+  final jsonFile9 = File('video_0_8b087326d8ad465c97f039ec4ef1ab48.mp4.s.json');
+
+  final imgFile10 = File('IMG001.jpg');
+  final vidFile10 = File('IMG001.mp4');
+  final jsonFile10 = File('IMG001.jpg.json');
+
+  final imgFile11 = File('IMG002.jpg');
+  final vidFile12 = File('IMG002.mp4');
+  final jsonFile11 = File('IMG002.jpg.json');
+  final jsonFile12 = File('IMG002.mp4.json');
+
   final media = [
     Media({null: imgFile1},
         dateTaken: DateTime(2020, 9, 1), dateTakenAccuracy: 1),
@@ -65,6 +82,12 @@ AQACEQMRAD8AIcgXf//Z""";
   /// Set up test stuff - create test shitty files in wherever pwd is
   /// We don't worry because we'll delete them later
   setUpAll(() {
+    // go to temp dir
+    final d = Directory(join(Directory.systemTemp.path,
+        'gpth_test${DateTime.now().millisecondsSinceEpoch}'));
+    d.createSync();
+    Directory.current = d;
+
     albumDir.createSync(recursive: true);
     imgFileGreen.createSync();
     imgFileGreen.writeAsBytesSync(
@@ -82,12 +105,28 @@ AQACEQMRAD8AIcgXf//Z""";
     imgFile6_1.writeAsBytesSync([18, 19, 20]);
     writeJson(File file, int time) =>
         file.writeAsStringSync('{"photoTakenTime": {"timestamp": "$time"}}');
+
+    imgFile7.writeAsBytesSync([21, 22, 23]);
+    imgFile8.writeAsBytesSync([24, 25, 26]);
+    imgFile9.writeAsBytesSync([27, 28, 29]);
+    imgFile10.writeAsBytesSync([30, 31, 32]);
+    vidFile10.writeAsBytesSync([31, 32, 33]);
+    imgFile11.writeAsBytesSync([34, 35, 36]);
+    vidFile12.writeAsBytesSync([37, 38, 39]);
+
     writeJson(jsonFile1, 1599078832);
     writeJson(jsonFile2, 1683078832);
     writeJson(jsonFile3, 1666942303);
     writeJson(jsonFile4, 1683074444);
     writeJson(jsonFile5, 1680289442);
     writeJson(jsonFile6, 1422183600);
+    writeJson(jsonFile7, 1422183601);
+    writeJson(jsonFile8, 1422183602);
+    writeJson(jsonFile9, 1422183603);
+    writeJson(jsonFile10, 1422183604);
+    writeJson(jsonFile11, 1422183605);
+    writeJson(jsonFile12, 1422183606);
+    renameIncorrectJsonFiles(Directory.current);
   });
 
   group('DateTime extractors', () {
@@ -132,6 +171,34 @@ AQACEQMRAD8AIcgXf//Z""";
         (await jsonExtractor(imgFile6_1, tryhard: true))
             ?.millisecondsSinceEpoch,
         1422183600 * 1000,
+      );
+      expect(
+        (await jsonExtractor(imgFile7, tryhard: true))?.millisecondsSinceEpoch,
+        1422183601 * 1000,
+      );
+      expect(
+        (await jsonExtractor(imgFile8, tryhard: true))?.millisecondsSinceEpoch,
+        1422183602 * 1000,
+      );
+      expect(
+        (await jsonExtractor(imgFile9, tryhard: true))?.millisecondsSinceEpoch,
+        1422183603 * 1000,
+      );
+      expect(
+        (await jsonExtractor(imgFile10, tryhard: true))?.millisecondsSinceEpoch,
+        1422183604 * 1000,
+      );
+      expect(
+        (await jsonExtractor(vidFile10, tryhard: true))?.millisecondsSinceEpoch,
+        1422183604 * 1000,
+      );
+      expect(
+        (await jsonExtractor(imgFile11, tryhard: true))?.millisecondsSinceEpoch,
+        1422183605 * 1000,
+      );
+      expect(
+        (await jsonExtractor(vidFile12, tryhard: true))?.millisecondsSinceEpoch,
+        1422183606 * 1000,
       );
     });
     test('exif', () async {
@@ -226,7 +293,8 @@ AQACEQMRAD8AIcgXf//Z""";
       Directory('./Photos from 2025'),
       Directory('./Photos from 1969'),
       Directory('./Photos from vacation'),
-      Directory('/tmp/very-random-omg'),
+      Directory('./tmp'),
+      Directory('./tmp/very-random-omg'),
     ];
     setUpAll(() async {
       for (var d in dirs) {
@@ -238,10 +306,10 @@ AQACEQMRAD8AIcgXf//Z""";
       expect(isYearFolder(dirs[1]), true);
       expect(isYearFolder(dirs[2]), false);
       expect(await isAlbumFolder(dirs[2]), true);
-      expect(await isAlbumFolder(dirs[3]), false);
+      expect(await isAlbumFolder(dirs[4]), false);
     });
     tearDownAll(() async {
-      for (var d in dirs) {
+      for (var d in dirs.reversed) {
         await d.delete();
       }
     });
@@ -267,7 +335,18 @@ AQACEQMRAD8AIcgXf//Z""";
           await output.list(recursive: true, followLinks: false).toSet();
       // 2 folders + media + 1 album-ed shortcut
       expect(outputted.length, 2 + media.length + 1);
-      expect(outputted.whereType<Link>().length, 1);
+      if (Platform.isWindows) {
+        var i = 0;
+        for (final entity in outputted) {
+          if (entity.path.endsWith(".lnk")) {
+            i++;
+          }
+        }
+        expect(i, 1);
+      } else {
+        expect(outputted.whereType<Link>().length, 1);
+      }
+
       expect(
         outputted.whereType<Directory>().map((e) => basename(e.path)).toSet(),
         {'ALL_PHOTOS', 'Vacation'},
@@ -379,11 +458,16 @@ AQACEQMRAD8AIcgXf//Z""";
     imgFile5.deleteSync();
     imgFile6.deleteSync();
     imgFile6_1.deleteSync();
+    imgFile7.deleteSync();
+    imgFile8.deleteSync();
     jsonFile1.deleteSync();
     jsonFile2.deleteSync();
     jsonFile3.deleteSync();
     jsonFile4.deleteSync();
     jsonFile5.deleteSync();
     jsonFile6.deleteSync();
+    File('img1.jpg.json').deleteSync();
+    File('img2.jpg(18).json').deleteSync();
+    File('video_0_8b087326d8ad465c97f039ec4ef1ab48.mp4.json').deleteSync();
   });
 }

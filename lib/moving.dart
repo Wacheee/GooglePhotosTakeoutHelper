@@ -36,7 +36,7 @@ Future<File> createShortcut(Directory location, File target) async {
   if (Platform.isWindows) {
     try {
       createShortcutWin(link.path, targetPath);
-    }catch (e) {
+    } catch (e) {
       final res = await Process.run(
         'powershell.exe',
         [

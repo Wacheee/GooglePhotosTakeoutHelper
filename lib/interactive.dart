@@ -207,16 +207,16 @@ Future<bool> askModifyJson() async {
   print('For example: myImageName.jpg.supplemental-metadata.json');
   print(
       '[1] (Erase suffix) - [Recommended] Yes, the photos have the suffix "supplemental-metadata"');
-  print('[2] (Dont Erease suffix) - No');
+  print('[2] (Dont Erase suffix) - No');
   print('(Type a number or press enter for default):');
   final answer = await askForInt();
   switch (answer) {
     case '1':
     case '':
-      print('Will erease the suffix "supplemental-metadata"');
+      print('Will erase the suffix "supplemental-metadata"');
       return true;
     case '2':
-      print('Will not erease the suffix');
+      print('Will not erase the suffix');
       return false;
     default:
       error('Invalid answer - try again');

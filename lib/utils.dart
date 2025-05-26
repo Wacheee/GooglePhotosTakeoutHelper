@@ -40,7 +40,7 @@ extension X on Iterable<FileSystemEntity> {
             // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/223
             // https://github.com/dart-lang/mime/issues/102
             // 🙃🙃
-            mime == 'model/vnd.mts'||
+            mime == 'model/vnd.mts' ||
             _moreExtensions.contains(fileExtension);
       });
 }
@@ -55,7 +55,7 @@ extension Y on Stream<FileSystemEntity> {
             // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/223
             // https://github.com/dart-lang/mime/issues/102
             // 🙃🙃
-            mime == 'model/vnd.mts'||
+            mime == 'model/vnd.mts' ||
             _moreExtensions.contains(fileExtension);
       });
 }
@@ -148,34 +148,81 @@ extension Z on String {
 
 Future<void> renameIncorrectJsonFiles(Directory directory) async {
   int renamedCount = 0;
+  final goodJsonRegex = RegExp(
+    r'^(.+)\.(.+?)(\(.+?\))*\.json$',
+    caseSensitive: false,
+  );
+
+  final regex = RegExp(
+    r'^(.+?)(\.[a-z0-9]{3,5})\..*?(\(.+?\))*\.json$',
+    caseSensitive: false,
+  );
   await for (final entity in directory.list(recursive: true)) {
     if (entity is File && p.extension(entity.path) == '.json') {
       final originalName = p.basename(entity.path);
 
       // Regex to dettect pattern
-      final regex = RegExp(
-        r'^(.*\.[a-z0-9]{3,5})\..+\.json$',
-        caseSensitive: false,
-      );
+      /* 
+      img.jpg.supple(18).json
+      img.jpg.json
+      img.jpg(1).json
+      img.jpg..(1).json
 
-      final match = regex.firstMatch(originalName);
-      if (match != null) {
-        final newName = '${match.group(1)}.json';
-        if (newName != originalName) {
-          final newPath = p.join(p.dirname(entity.path), newName);
-          final newFile = File(newPath);
+      group(1) = img
+      group(2) = .jpg
+      group(3) = (1)      
+      */
 
-          // Verify if the file renamed already exists
-          if (await newFile.exists()) {
-            print('[Renamed] Skipping: $newPath already exists');
+      File? newFile;
+      // most common case - faster processing
+      if (originalName.endsWith(".supplemental-metadata.json")) {
+        // easy solve
+        final newName =
+            originalName.replaceLast('.supplemental-metadata.json', '.json');
+        final newPath = p.join(p.dirname(entity.path), newName);
+        newFile = File(newPath);
+      } else {
+        // search for pattern
+        final match = regex.firstMatch(originalName);
+        if (match != null) {
+          var newName = originalName;
+          if (match.group(3) == null) {
+            newName = '${match.group(1)}${match.group(2)}.json';
           } else {
-            try {
-              await entity.rename(newPath);
-              renamedCount++;
-              //print('[Renamed] ${entity.path} -> $newPath');
-            } on FileSystemException catch (e) {
-              print('[Error] Renaming ${entity.path}: ${e.message}');
+            newName =
+                '${match.group(1)}${match.group(2)}${match.group(3)}.json';
+          }
+
+          // so, there is something that should be done
+          if (newName != originalName) {
+            // let's check if the file is already in the good format
+            final goodJsonMatch = goodJsonRegex.firstMatch(originalName);
+            if (goodJsonMatch != null) {
+              File goodJsonFile = File(p.join(entity.parent.path,
+                  '${goodJsonMatch.group(1)}${goodJsonMatch.group(3)}.${goodJsonMatch.group(2)}'));
+              if (!goodJsonFile.existsSync()) {
+                final newPath = p.join(p.dirname(entity.path), newName);
+                newFile = File(newPath);
+              }
+            } else {
+              final newPath = p.join(p.dirname(entity.path), newName);
+              newFile = File(newPath);
             }
+          }
+        }
+      }
+
+      // Verify if the file renamed already exists
+      if (newFile != null) {
+        if (newFile.existsSync()) {
+          print('[Renamed] Skipping: $newFile already exists');
+        } else {
+          try {
+            await entity.rename(newFile.path);
+            renamedCount++;
+            //print('[Renamed] ${entity.path} -> $newPath');
+          } on FileSystemException catch (e) {
+            print('[Error] Renaming ${entity.path}: ${e.message}');
           }
         }
       }
@@ -184,7 +231,8 @@ Future<void> renameIncorrectJsonFiles(Directory directory) async {
   print('Successfully renamed JSON files (suffix removed): $renamedCount');
 }
 
-Future<void> changeMPExtensions(List<Media> allMedias, String finalExtension) async {
+Future<void> changeMPExtensions(
+    List<Media> allMedias, String finalExtension) async {
   int renamedCount = 0;
   for (final m in allMedias) {
     for (final entry in m.files.entries) {
@@ -193,7 +241,7 @@ Future<void> changeMPExtensions(List<Media> allMedias, String finalExtension) as
       if (ext == '.mv' || ext == '.mp') {
         final originalName = p.basenameWithoutExtension(file.path);
         final normalizedName = unorm.nfc(originalName);
-      
+
         final newName = '$normalizedName$finalExtension';
         if (newName != normalizedName) {
           final newPath = p.join(p.dirname(file.path), newName);
@@ -203,18 +251,20 @@ Future<void> changeMPExtensions(List<Media> allMedias, String finalExtension) as
             m.files[entry.key] = newFile;
             renamedCount++;
           } on FileSystemException catch (e) {
-            print('[Error] Error changing extension to $finalExtension -> ${file.path}: ${e.message}');
+            print(
+                '[Error] Error changing extension to $finalExtension -> ${file.path}: ${e.message}');
           }
-        } 
+        }
       }
     }
   }
-  print('Successfully changed Pixel Motion Photos files extensions (change it to $finalExtension): $renamedCount');
+  print(
+      'Successfully changed Pixel Motion Photos files extensions (change it to $finalExtension): $renamedCount');
 }
 
 /// Recursively traverses the output [directory] and updates
 /// the creation time of files in batches.
-/// For each file, attempts to set the creation date to match 
+/// For each file, attempts to set the creation date to match
 /// the last modification date.
 /// Only Windows support for now, using PowerShell.
 /// In the future MacOS support is possible if the user has XCode installed
@@ -224,28 +274,34 @@ Future<void> updateCreationTimeRecursively(Directory directory) async {
     return;
   }
   int changedFiles = 0;
-  int maxChunkSize = 32000;  //Avoid 32768 char limit in command line with chunks
+  int maxChunkSize = 32000; //Avoid 32768 char limit in command line with chunks
 
-  String currentChunk = "";  
-  await for (final entity in directory.list(recursive: true, followLinks: false)) {
+  String currentChunk = "";
+  await for (final entity
+      in directory.list(recursive: true, followLinks: false)) {
     if (entity is File) {
       //Command for each file
-      final command ="(Get-Item '${entity.path}').CreationTime = (Get-Item '${entity.path}').LastWriteTime;";
+      final command =
+          "(Get-Item '${entity.path}').CreationTime = (Get-Item '${entity.path}').LastWriteTime;";
       //If current command + chunk is larger than 32000, commands in currentChunk is executed and current comand is passed for the next execution
       if (currentChunk.length + command.length > maxChunkSize) {
         bool success = await _executePShellCreationTimeCmd(currentChunk);
-        if (success) changedFiles += currentChunk.split(';').length-1; // -1 to ignore last ';'
+        if (success)
+          changedFiles +=
+              currentChunk.split(';').length - 1; // -1 to ignore last ';'
         currentChunk = command;
       } else {
         currentChunk += command;
       }
     }
   }
-  
+
   //Leftover chunk is executed after the for
   if (currentChunk.isNotEmpty) {
     bool success = await _executePShellCreationTimeCmd(currentChunk);
-    if (success) changedFiles += currentChunk.split(';').length-1; // -1 to ignore last ';'
+    if (success)
+      changedFiles +=
+          currentChunk.split(';').length - 1; // -1 to ignore last ';'
   }
   print("Successfully updated creation time for $changedFiles files!");
 }
@@ -254,9 +310,11 @@ Future<void> updateCreationTimeRecursively(Directory directory) async {
 Future<bool> _executePShellCreationTimeCmd(String commandChunk) async {
   try {
     final result = await Process.run('powershell', [
-      '-ExecutionPolicy', 'Bypass',
+      '-ExecutionPolicy',
+      'Bypass',
       '-NonInteractive',
-      '-Command', commandChunk
+      '-Command',
+      commandChunk
     ]);
 
     if (result.exitCode != 0) {
@@ -275,7 +333,7 @@ void createShortcutWin(String shortcutPath, String targetPath) {
   Pointer<COMObject>? persistFile;
   Pointer<Utf16>? shortcutPathPtr;
   try {
-      // Initialize the COM library on the current thread
+    // Initialize the COM library on the current thread
     final hrInit = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     if (FAILED(hrInit)) {
       throw ('Error initializing COM: $hrInit');
@@ -301,8 +359,7 @@ void createShortcutWin(String shortcutPath, String targetPath) {
     // Saving shortcut
     persistFile = calloc<COMObject>();
     final hrPersistFile = shellLinkPtr.QueryInterface(
-        GUIDFromString(IID_IPersistFile).cast<GUID>(),
-        persistFile.cast());
+        GUIDFromString(IID_IPersistFile).cast<GUID>(), persistFile.cast());
     if (FAILED(hrPersistFile)) {
       throw ('Error obtaining IPersistFile: $hrPersistFile');
     }
@@ -312,7 +369,7 @@ void createShortcutWin(String shortcutPath, String targetPath) {
 
     if (FAILED(hrSave)) {
       throw ('Error trying to save shortcut: $hrSave');
-    } 
+    }
   } finally {
     // Free memory
     if (shortcutPathPtr != null) {

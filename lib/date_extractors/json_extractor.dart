@@ -31,10 +31,16 @@ Future<DateTime?> jsonExtractor(File file, {bool tryhard = false}) async {
 
 Future<File?> _jsonForFile(File file, {required bool tryhard}) async {
   final dir = Directory(p.dirname(file.path));
+  final files = await dir.list().toList(); // Cache file list
+  final fileNamesUppercaseMap = {
+    for (var f in files.whereType<File>()) p.basename(f.path).toUpperCase(): f
+  };
+
   var name = p.basename(file.path);
-  // will try all methods to strip name to find json
-  for (final method in [
-    // none
+  var upperCaseName = name.toUpperCase();
+
+  var methods = [
+    (String s) => s, // direct
     (String s) => s,
     _shortenName,
     // test: combining this with _shortenName?? which way around?
@@ -48,9 +54,31 @@ Future<File?> _jsonForFile(File file, {required bool tryhard}) async {
       _removeExtraRegex,
       _removeDigit, // most files with '(digit)' have jsons, so it's last
     ]
-  ]) {
-    final jsonFile = File(p.join(dir.path, '${method(name)}.json'));
-    if (await jsonFile.exists()) return jsonFile;
+  ];
+
+  // live photos, we need to search for a different json file
+  if (upperCaseName.endsWith(".MP4")) {
+    var jpgName = "${upperCaseName.substring(0, name.length - 4)}.JPG";
+    if (fileNamesUppercaseMap.containsKey(jpgName)) {
+      // found live image
+      final realJpgName = p.basename(fileNamesUppercaseMap[jpgName]!.path);
+      methods.insert(1, (String s) => realJpgName);
+    } else {
+      var heicName = "${upperCaseName.substring(0, name.length - 4)}.HEIC";
+      if (fileNamesUppercaseMap.containsKey(heicName)) {
+        // found live image
+        final realHeicName = p.basename(fileNamesUppercaseMap[heicName]!.path);
+        methods.insert(1, (String s) => realHeicName);
+      }
+    }
+  }
+
+  // will try all methods to strip name to find json
+  for (final method in methods) {
+    final jsonFileName = '${method(name)}.json';
+    if (fileNamesUppercaseMap.containsKey(jsonFileName.toUpperCase())) {
+      return fileNamesUppercaseMap[jsonFileName.toUpperCase()];
+    }
   }
   return null;
 }
