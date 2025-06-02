@@ -12,16 +12,35 @@ Future<bool> writeDateTimeToExif(
   final DateTime dateTime,
   final File file,
 ) async {
+  final List<int> headerBytes = await File(file.path).openRead(0, 128).first;
+  final String? mimeTypeFromHeader = lookupMimeType(
+    file.path,
+    headerBytes: headerBytes,
+  );
+  final String? mimeTypeFromExtension = lookupMimeType(file.path);
+
   //Check if the file already has a dateTime in its EXIF data. If function returns a DateTime, there is no need to write it again. Skip.
   if (await exifDateTimeExtractor(file) != null) {
     return false;
   }
-  //When exiftool is installed
+
   if (exifToolInstalled) {
     //Even if exifTool is installed, try to use native way for speed first and if it works keep going. If not, use exiftool.
-    if (_noExifToolDateTimeWriter(file, dateTime)) {
+    if (mimeTypeFromHeader == 'image/jpeg' &&
+        await _noExifToolDateTimeWriter(file, dateTime, mimeTypeFromHeader)) {
       return true; //If native way was able to write exif data: exit. If not, try exifTool.
     }
+
+    if (mimeTypeFromExtension != mimeTypeFromHeader &&
+        mimeTypeFromHeader != 'image/tiff') {
+      log(
+        "DateWriter - File has a wrong extension indicating '$mimeTypeFromExtension' but actually it is '$mimeTypeFromHeader'. Exiftool would fail, skipping.\n ${file.path}",
+        level: 'error',
+        forcePrint: true,
+      );
+      return false;
+    }
+
     final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
     final String dt = exifFormat.format(dateTime);
     final success = await exiftool!.writeExifBatch(file, {
@@ -43,7 +62,7 @@ Future<bool> writeDateTimeToExif(
     }
   } else {
     //When exiftool is not installed
-    return _noExifToolDateTimeWriter(file, dateTime);
+    return _noExifToolDateTimeWriter(file, dateTime, mimeTypeFromHeader);
   }
 }
 
@@ -51,12 +70,29 @@ Future<bool> writeGpsToExif(
   final DMSCoordinates coordinates,
   final File file,
 ) async {
+  final List<int> headerBytes = await File(file.path).openRead(0, 128).first;
+  final String? mimeTypeFromHeader = lookupMimeType(
+    file.path,
+    headerBytes: headerBytes,
+  );
+
   if (exifToolInstalled) {
-    //When exiftool is installed
+    final String? mimeTypeFromExtension = lookupMimeType(file.path);
     //Even if exifTool is installed, try to use native way for speed first and if it works keep going. If not, use exiftool.
-    if (_noExifGPSWriter(file, coordinates)) {
+    if (mimeTypeFromHeader == 'image/jpeg' &&
+        await _noExifGPSWriter(file, coordinates, mimeTypeFromHeader)) {
       return true;
     }
+
+    if (mimeTypeFromExtension != mimeTypeFromHeader) {
+      log(
+        "GPSWriter - File has a wrong extension indicating '$mimeTypeFromExtension' but actually it is '$mimeTypeFromHeader'. Exiftool would fail, skipping.\n ${file.path}",
+        level: 'error',
+        forcePrint: true,
+      );
+      return false;
+    }
+
     //Check if the file already has EXIF data and if yes, skip.
     final Map coordinatesMap = await exiftool!.readExifBatch(file, [
       'GPSLatitude',
@@ -90,14 +126,34 @@ Future<bool> writeGpsToExif(
     return false;
   } else {
     //If exiftool is not installed
-    return _noExifGPSWriter(file, coordinates);
+    return _noExifGPSWriter(file, coordinates, mimeTypeFromHeader);
   }
 }
 
-bool _noExifToolDateTimeWriter(final File file, final DateTime dateTime) {
+/// Writes DateTime to EXIF using native Dart libraries (JPEG only)
+///
+/// Only supports JPEG files
+/// using the 'image' package for EXIF manipulation.
+///
+/// [file] Image file to write to
+/// [dateTime] DateTime to write to EXIF fields
+/// [mimeTypeFromHeader] MIME type detected from file header
+/// Returns true if write was successful
+Future<bool> _noExifToolDateTimeWriter(
+  final File file,
+  final DateTime dateTime,
+  final String? mimeTypeFromHeader,
+) async {
   final exifFormat = DateFormat('yyyy:MM:dd HH:mm:ss');
-  final String? mimeType = lookupMimeType(file.path);
-  if (mimeType == 'image/jpeg') {
+  final String? mimeTypeFromExtension = lookupMimeType(file.path);
+  if (mimeTypeFromHeader == 'image/jpeg') {
+    if (mimeTypeFromHeader != mimeTypeFromExtension) {
+      log(
+        "DateWriter - File has a wrong extension indicating '$mimeTypeFromExtension'"
+        " but actually it is '$mimeTypeFromHeader'. Will use native JPEG writer.\n ${file.path}",
+        level: 'warning',
+      );
+    }
     //when it's a jpg and the image library can handle it
     ExifData? exifData;
     final Uint8List origbytes = file.readAsBytesSync();
@@ -129,7 +185,7 @@ bool _noExifToolDateTimeWriter(final File file, final DateTime dateTime) {
   }
   if (!exifToolInstalled) {
     log(
-      '[Step 5/8] Found DateTime in json, but missing in EXIF. Writing to $mimeType is not supported without exiftool.',
+      '[Step 5/8] Found DateTime in json, but missing in EXIF. Writing to $mimeTypeFromHeader is not supported without exiftool.',
       level: 'warning',
       forcePrint: true,
     );
@@ -137,9 +193,29 @@ bool _noExifToolDateTimeWriter(final File file, final DateTime dateTime) {
   return false;
 }
 
-bool _noExifGPSWriter(final File file, final DMSCoordinates coordinates) {
-  final String? mimeType = lookupMimeType(file.path);
-  if (mimeType == 'image/jpeg') {
+/// Writes GPS coordinates to EXIF using native Dart libraries (JPEG only)
+///
+/// Only supports JPEG files
+/// using the 'image' package for EXIF manipulation.
+///
+/// [file] Image file to write to
+/// [coordinates] GPS coordinates to write
+/// [mimeTypeFromHeader] MIME type detected from file header
+/// Returns true if write was successful
+Future<bool> _noExifGPSWriter(
+  final File file,
+  final DMSCoordinates coordinates,
+  final String? mimeTypeFromHeader,
+) async {
+  if (mimeTypeFromHeader == 'image/jpeg') {
+    final String? mimeTypeFromExtension = lookupMimeType(file.path);
+    if (mimeTypeFromHeader != mimeTypeFromExtension) {
+      log(
+        "GPSWriter - File has a wrong extension indicating '$mimeTypeFromExtension'"
+        " but actually it is '$mimeTypeFromHeader'. Will use native JPEG writer. \n ${file.path}",
+        level: 'warning',
+      );
+    }
     //when it's a jpg and the image library can handle it
     ExifData? exifData;
     final Uint8List origbytes = file.readAsBytesSync();
@@ -171,12 +247,12 @@ bool _noExifGPSWriter(final File file, final DMSCoordinates coordinates) {
   if (!exifToolInstalled) {
     if (isVerbose) {
       log(
-        '[Step 5/8] Found Coordinates in json, but missing in EXIF. Writing to $mimeType is not supported without exiftool.',
+        '[Step 5/8] Found Coordinates in json, but missing in EXIF. Writing to $mimeTypeFromHeader is not supported without exiftool.',
         level: 'warning',
       );
     } else {
       print(
-        '[Step 5/8] [WARNING] Found Coordinates in json, but missing in EXIF. Writing to $mimeType is not supported without exiftool.',
+        '[Step 5/8] [WARNING] Found Coordinates in json, but missing in EXIF. Writing to $mimeTypeFromHeader is not supported without exiftool.',
       );
     }
   }

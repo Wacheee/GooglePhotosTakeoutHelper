@@ -5,7 +5,6 @@ import 'package:coordinate_converter/coordinate_converter.dart';
 import 'package:path/path.dart' as p;
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
 import '../extras.dart' as extras;
-import '../extras.dart' show extraFormats;
 import '../utils.dart';
 
 /// Finds corresponding json file with info from media file and gets 'photoTakenTime' from it
@@ -33,7 +32,14 @@ Future<DateTime?> jsonDateTimeExtractor(
   }
 }
 
-///Tries to find json for media file
+/// Attempts to find the corresponding JSON file for a media file
+///
+/// Tries multiple strategies to locate JSON files, including handling
+/// filename truncation, bracket swapping, and extra format removal.
+///
+/// [file] Media file to find JSON for
+/// [tryhard] If true, uses more aggressive matching strategies
+/// Returns the JSON file if found, null otherwise
 Future<File?> _jsonForFile(
   final File file, {
   required final bool tryhard,
@@ -63,18 +69,29 @@ Future<File?> _jsonForFile(
   return null;
 }
 
-// if the originally file was uploaded without an extension,
-// (for example, "20030616" (jpg but without ext))
-// it's json won't have the extension ("20030616.json"), but the image
-// itself (after google proccessed it) - will ("20030616.jpg" tadam)
+/// Removes file extension from filename
+///
+/// Handles cases where original file had no extension but Google added one.
+///
+/// [filename] Original filename
+/// Returns filename without extension
 String _noExtension(final String filename) =>
     p.basenameWithoutExtension(File(filename).path);
 
+/// Removes digit patterns like "(1)" from filenames
+///
+/// [filename] Original filename
+/// Returns filename with digit patterns removed
 String _removeDigit(final String filename) =>
     filename.replaceAll(RegExp(r'\(\d\)\.'), '.');
 
-/// This removes only strings defined in [extraFormats] list from `extras.dart`,
-/// so it's pretty safe
+/// Removes "extra" format suffixes safely using predefined list
+///
+/// Only removes suffixes from the known safe list in extraFormats.
+/// Handles Unicode normalization for cross-platform compatibility.
+///
+/// [filename] Original filename
+/// Returns filename with extra formats removed
 String _removeExtra(final String filename) {
   // MacOS uses NFD that doesn't work with our accents 🙃🙃
   // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/247
@@ -87,15 +104,13 @@ String _removeExtra(final String filename) {
   return normalizedFilename;
 }
 
-/// this will match:
-/// ```
-///        '.extension' v  v end of string
-/// something-edited(1).jpg
-///        extra ^   ^ optional number in '()'
+/// Removes extra format suffixes using regex patterns
 ///
-/// Result: something.jpg
-/// ```
-/// so it's *kinda* safe
+/// More aggressive than _removeExtra, uses regex to match
+/// pattern like "something-edited(1).jpg" -> "something.jpg"
+///
+/// [filename] Original filename
+/// Returns filename with extra patterns removed
 String _removeExtraRegex(final String filename) {
   // MacOS uses NFD that doesn't work with our accents 🙃🙃
   // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/pull/247
@@ -122,14 +137,13 @@ String _shortenName(final String filename) => '$filename.json'.length > 51
 // thanks @casualsailo and @denouche for bringing attention!
 // https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/188
 // and https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper/issues/175
-// issues helped to discover this
-/// Some (actually quite a lot of) files go like:
-/// image(11).jpg -> image.jpg(11).json
-/// (swapped number in brackets)
+/// Handles bracket number swapping in filenames
 ///
-/// This function does just that, and by my current intuition tells me it's
-/// pretty safe to use so I'll put it without the tryHard flag
-// note: would be nice if we had some tougher tests for this
+/// Some files have patterns like "image(11).jpg" with JSON "image.jpg(11).json"
+/// This function swaps the bracket position to match.
+///
+/// [filename] Original filename
+/// Returns filename with brackets repositioned
 String _bracketSwap(final String filename) {
   // this is with the dot - more probable that it's just before the extension
   final RegExpMatch? match = RegExp(

@@ -68,7 +68,6 @@ for your OS and make sure the executable is in a folder in the \$PATH.
 Then, run: gpth --input "folder/with/all/takeouts" --output "your/output/folder"
 ...and gpth will parse and organize all photos into one big chronological folder
 ''';
-const int barWidth = 40;
 
 /// ##############################################################
 /// This is the main function that will be run when user runs gpth
@@ -425,7 +424,7 @@ Future<void> main(final List<String> arguments) async {
       a,
     ); //Here we check if there are emojis in the album names and if yes, we hex encode them so there are no problems later!
     await for (final File file in cleanedAlbumDir.list().wherePhotoVideo()) {
-      media.add(Media(<String?, File>{cleanedAlbumDir.path: file}));
+      media.add(Media(<String?, File>{albumName(cleanedAlbumDir): file}));
     }
   }
 
@@ -491,7 +490,7 @@ Future<void> main(final List<String> arguments) async {
   final FillingBar barExtract = FillingBar(
     total: media.length,
     desc: '[Step 4/8] Extracting dates from files',
-    width: barWidth,
+    width: defaultBarWidth,
   );
 
   // Collect statistics for reporting
@@ -553,7 +552,7 @@ Future<void> main(final List<String> arguments) async {
     final FillingBar barJsonToExifExtractor = FillingBar(
       total: media.length,
       desc: '[Step 5/8] Getting EXIF data from JSONs and applying it to media',
-      width: barWidth,
+      width: defaultBarWidth,
     );
 
     for (int i = 0; i < media.length; i++) {
@@ -586,7 +585,7 @@ Future<void> main(final List<String> arguments) async {
   }
   sw5.stop();
   print(
-    '[Step 5/8] Step 5 took ${sw5.elapsed.inMinutes} minutes or ${sw5.elapsed.inSeconds} seconds to complete.',
+    '\n[Step 5/8] Step 5 took ${sw5.elapsed.inMinutes} minutes or ${sw5.elapsed.inSeconds} seconds to complete.',
   );
 
   /// ##############################################################
@@ -599,12 +598,8 @@ Future<void> main(final List<String> arguments) async {
   // be broken in shithole of big-ass year folders
   final Stopwatch sw6 = Stopwatch()
     ..start(); //Creation of our debugging stopwatch for each step.
-  final FillingBar barFindAlbums = FillingBar(
-    total: outputFileCount(media, args['albums']),
-    desc: '[Step 6/8] Finding albums',
-    width: barWidth,
-  );
-  findAlbums(media, barFindAlbums);
+  print('[Step 6/8] Finding albums (this may take a while)');
+  findAlbums(media);
 
   /// ##############################################################
 
@@ -617,9 +612,8 @@ Future<void> main(final List<String> arguments) async {
     );
     await changeMPExtensions(media, '.mp4');
   } else {
-    print('[Step 6/8] Skipped changing .MP or .MV extensions to .mp4');
+    print('\n[Step 6/8] Skipped changing .MP or .MV extensions to .mp4');
   }
-  print('');
 
   /// ##############################################################
 
@@ -654,7 +648,7 @@ Future<void> main(final List<String> arguments) async {
     total: outputFileCount(media, args['albums']),
     desc:
         "[Step 7/8] ${args['copy'] ? 'Copying' : 'Moving'} media to output folder",
-    width: barWidth,
+    width: defaultBarWidth,
   );
   await moveFiles(
     media,
@@ -665,7 +659,7 @@ Future<void> main(final List<String> arguments) async {
         : num.parse(args['divide-to-dates']),
     albumBehavior: args['albums'],
   ).listen((final _) => barCopy.increment()).asFuture();
-  print('[Step 7/8] Done moving/copying media!');
+  print('\n[Step 7/8] Done moving/copying media!');
 
   // @Deprecated('Interactive unzipping is suspended for now!')
   // // remove unzipped folder if was created
@@ -690,28 +684,33 @@ Future<void> main(final List<String> arguments) async {
     );
     updatedCreationTimeCounter = await updateCreationTimeRecursively(output);
     print('');
-    print('=' * barWidth);
+    print('=' * defaultBarWidth);
   } else {
     print('[Step 8/8] Skipping: Updating creation time (Windows only)');
   }
-  print('');
   sw8.stop();
   log(
-    '[Step 8/8] Step 6 took ${sw8.elapsed.inMinutes} minutes or ${sw8.elapsed.inSeconds} seconds to complete.',
+    '\n[Step 8/8] Step 6 took ${sw8.elapsed.inMinutes} minutes or ${sw8.elapsed.inSeconds} seconds to complete.',
   );
 
   // After all processing steps, before program exit we encode the emojis in album paths again.
-  final outputDirs = output.listSync().whereType<Directory>();
-  final FillingBar barEmojiEncode = FillingBar(
-    total: outputFileCount(media, args['albums']),
-    desc: '[Step 8/8] Looking for folders with emojis and renaming them back.',
-    width: barWidth,
-  );
-  for (final dir in outputDirs) {
-    final String decodedPath = decodeAndRestoreAlbumEmoji(dir.path);
-    barEmojiEncode.increment();
-    if (decodedPath != dir.path) {
-      dir.renameSync(decodedPath);
+  final outputDirs = output.listSync(recursive: true).whereType<Directory>();
+  if (outputDirs.isNotEmpty) {
+    final FillingBar barEmojiEncode = FillingBar(
+      total: outputDirs.length,
+      desc:
+          '[Step 8/8] Looking for folders with emojis and renaming them back.',
+      width: defaultBarWidth,
+    );
+    for (final dir in outputDirs) {
+      final String decodedPath = decodeAndRestoreAlbumEmoji(dir.path);
+
+      barEmojiEncode.increment();
+
+      if (decodedPath != dir.path) {
+        dir.renameSync(decodedPath);
+      }
+      barEmojiEncode.increment();
     }
   }
 
@@ -720,8 +719,8 @@ Future<void> main(final List<String> arguments) async {
   /// Now just the last message of the program, just displaying some stats so you have an overview of what happened.
   /// Also helps with testing because you can run a diverse and large dataset with the same options through a new version and expect the same (or better) stats.
   /// If they got worse, you did smth wrong.
-
-  print('=' * barWidth);
+  print('');
+  print('=' * defaultBarWidth);
   print('DONE! FREEEEEDOOOOM!!!');
   print('Some statistics for the achievement hunters:');
   //This check will print an error if no stats are available.
@@ -764,6 +763,6 @@ Future<void> main(final List<String> arguments) async {
     'https://ko-fi.com/thelastgimbus\n'
     'Thank you ❤',
   );
-  print('=' * barWidth);
+  print('=' * defaultBarWidth);
   quit(0);
 }

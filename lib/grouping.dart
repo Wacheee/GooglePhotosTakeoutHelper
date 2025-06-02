@@ -5,21 +5,20 @@ library;
 
 import 'dart:io';
 import 'package:collection/collection.dart';
-import 'package:console_bars/console_bars.dart';
 import 'package:path/path.dart' as p;
 import 'media.dart' show Media;
 import 'media.dart';
 import 'utils.dart';
 
 extension Group on Iterable<Media> {
-  /// This groups your media into map where key is something that they share
-  /// and value is the List of those media are the same
+  /// Groups media objects by file size and hash for duplicate detection
   ///
-  /// Key may be "245820998bytes", where there was no other file same size
-  /// (no need to calculate hash), or hash.toSting'ed where hash was calculated
+  /// First groups by file size (cheap comparison), then calculates hashes
+  /// only for files with matching sizes. Returns a map where:
+  /// - Key: Either "XXXbytes" for unique sizes, or hash string for duplicates
+  /// - Value: List of Media objects sharing that size/hash
   ///
-  /// Groups may be 1-lenght, where element was unique, or n-lenght where there
-  /// were duplicates
+  /// Single-item groups indicate unique files, multi-item groups are duplicates
   Map<String, List<Media>> groupIdentical() {
     final Map<String, List<Media>> output = <String, List<Media>>{};
     // group files by size - can't have same hash with diff size
@@ -92,17 +91,17 @@ int removeDuplicates(final List<Media> media) {
   return count;
 }
 
+/// Gets the album name from a directory path
+///
+/// [albumDir] Directory representing an album
+/// Returns the normalized basename of the directory
 String albumName(final Directory albumDir) =>
     p.basename(p.normalize(albumDir.path));
 
 /// This will analyze [allMedia], find which files are hash-same, and merge
 /// all of them into single [Media] object with all album names they had
-void findAlbums(final List<Media> allMedia, [final FillingBar? barFindAlbums]) {
+void findAlbums(final List<Media> allMedia) {
   for (final List<Media> group in allMedia.groupIdentical().values) {
-    if (barFindAlbums != null) {
-      barFindAlbums.increment();
-    }
-
     if (group.length <= 1) continue; // then this isn't a group
     // now, we have [group] list that contains actual sauce:
 

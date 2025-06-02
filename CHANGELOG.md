@@ -1,4 +1,54 @@
-## 4.0.1-wacheee-Xentraxx-beta
+## 4.0.5-wacheee-xentraxx-beta
+
+### Fork/Alternate version
+
+#### Bug fixes
+
+- Fixed multiple serious race conditions
+- Fixed serious problem where (1) was appended more than once
+- Fixed serious bug where reverse-shortcut album mode was not creating albums
+- Fixed serious bug where on windows .lnk was appended to a shortcut more than once
+- Fixed bug where mimeType needs to be identified by file header for various RAW formats which are based on TIFF (Thank you @IreunN)
+
+#### General improvements
+
+- Added more than 200 unit and functional tests with documentation
+- Documented every function comprehensively
+- Improved general documentation in code
+- Improved README to be more comprehensive
+- Added CONTRIBUTING.md
+
+## 4.0.4-wacheee-xentraxx-beta
+
+### Fork/Alternate version
+
+#### Bug fixes
+
+- Changed Github actions from Ubuntu 24.04 to 22.04 for legacy Synology NAS support
+
+## 4.0.3-wacheee-xentraxx-beta
+
+### Fork/Alternate version
+
+#### Bug fixes
+
+- Relying on the emoji-regex package to find all emojis
+- Added tests to find more emojis
+- Fixed github build actions
+- Fixed emoji logic to handle inivible characters (by @ireun (Thank you!))
+- Made output nicer and fixed wrong mimeType lookup where exiftool would fail (by @ireun (Thank you!))
+- Using ubuntu-22.04 instead of ubuntu-latest to build for legacy compatibility with old Synology NAS (thanks to @jaimetur)
+
+## 4.0.2-wacheee-xentraxx-beta
+
+### Fork/Alternate version
+
+#### Bug fixes
+
+- Removed some dysfunctional progress bars
+- resolved typo in release notes
+
+## 4.0.1-wacheee-xentraxx-beta
 
 ### Fork/Alternate version 
 ### This change is a big overhaul of the project, so only the major improvements or potential breaking changes are mentioned

@@ -1,6 +1,6 @@
 name: gpth
 description: 'Tool to help you with exporting stuff from Google Photos'
-version: 4.0.1
+version: 4.0.5
 homepage: 'https://github.com/TheLastGimbus/GooglePhotosTakeoutHelper'
 publish_to: 'none'
 
@@ -20,6 +20,7 @@ dependencies:
   file_picker_desktop: ^1.2.0
   exif_reader: ^3.16.1
   image: ^4.5.4
+  emoji_regex: ^0.0.5
 
   #  archive:
   #    git:

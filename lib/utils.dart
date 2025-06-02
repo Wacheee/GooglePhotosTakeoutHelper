@@ -8,10 +8,11 @@ import 'interactive.dart' as interactive;
 import 'media.dart';
 
 // remember to bump this
-const String version = '4.0.1-wacheee-Xentraxx-beta';
+const String version = '4.0.5-wacheee-Xentraxx-beta';
 
-/// max file size to read for exif/hash/anything
-const int maxFileSize = 64 * 1024 * 1024;
+// Processing constants
+const int defaultBarWidth = 40;
+const int defaultMaxFileSize = 64 * 1024 * 1024; // 64MB
 
 //initialising some global variables
 bool isVerbose = false;
@@ -20,9 +21,12 @@ bool enforceMaxFileSize = false;
 
 bool exifToolInstalled = false;
 
-/// convenient print for errors
+/// Prints error message to stderr with newline
 void error(final Object? object) => stderr.write('$object\n');
 
+/// Exits the program with optional code, showing interactive message if needed
+///
+/// [code] Exit code (default: 1)
 Never quit([final int code = 1]) {
   if (interactive.indeed) {
     print(
@@ -33,6 +37,9 @@ Never quit([final int code = 1]) {
   }
   exit(code);
 }
+
+//Support raw formats (dng, cr2) and Pixel motion photos (mp, mv)
+const List<String> _moreExtensions = <String>['.mp', '.mv', '.dng', '.cr2'];
 
 extension X on Iterable<FileSystemEntity> {
   /// Easy extension allowing you to filter for files that are photo or video
@@ -64,13 +71,14 @@ extension Y on Stream<FileSystemEntity> {
   });
 }
 
-//Support raw formats (dng, cr2) and Pixel motion photos (mp, mv)
-const List<String> _moreExtensions = <String>['.mp', '.mv', '.dng', '.cr2'];
-
 extension Util on Stream {
   Stream<T> whereType<T>() => where((final e) => e is T).cast<T>();
 }
 
+/// Returns disk free space in bytes for the given path
+///
+/// [path] Directory path to check (defaults to current directory)
+/// Returns null if unable to determine free space
 Future<int?> getDiskFree([String? path]) async {
   path ??= Directory.current.path;
   if (Platform.isLinux) {
@@ -84,6 +92,10 @@ Future<int?> getDiskFree([String? path]) async {
   }
 }
 
+/// Gets disk free space on Linux using df command
+///
+/// [path] Directory path to check
+/// Returns free space in bytes or null on failure
 Future<int?> _dfLinux(final String path) async {
   final ProcessResult res = await Process.run('df', <String>[
     '-B1',
@@ -98,6 +110,10 @@ Future<int?> _dfLinux(final String path) async {
         );
 }
 
+/// Gets disk free space on Windows using PowerShell
+///
+/// [path] Directory path to check
+/// Returns free space in bytes or null on failure
 Future<int?> _dfWindoza(final String path) async {
   final String driveLetter = p
       .rootPrefix(p.absolute(path))
@@ -111,6 +127,10 @@ Future<int?> _dfWindoza(final String path) async {
   return result;
 }
 
+/// Gets disk free space on macOS using df command
+///
+/// [path] Directory path to check
+/// Returns free space in bytes or null on failure
 Future<int?> _dfMcOS(final String path) async {
   final ProcessResult res = await Process.run('df', <String>['-k', path]);
   if (res.exitCode != 0) return null;
@@ -125,11 +145,20 @@ Future<int?> _dfMcOS(final String path) async {
   return macSays != null ? macSays * 1024 : null;
 }
 
+/// Formats byte count into human-readable file size string
+///
+/// [bytes] Number of bytes to format
+/// Returns formatted string like "1.5 MB"
 String filesize(final int bytes) => FileSize.fromBytes(bytes).toString(
   unit: Unit.auto(size: bytes, baseType: BaseType.metric),
   decimals: 2,
 );
 
+/// Calculates total number of output files based on album behavior
+///
+/// [media] List of media objects
+/// [albumOption] Album handling option ('shortcut', 'duplicate-copy', etc.)
+/// Returns expected number of output files
 int outputFileCount(final List<Media> media, final String albumOption) {
   if (<String>[
     'shortcut',
@@ -158,6 +187,12 @@ extension Z on String {
   }
 }
 
+/// Renames incorrectly named JSON files by removing supplemental metadata suffix
+///
+/// Searches recursively for .json files with patterns like:
+/// filename.jpg.supplemental-metadata.json -> filename.jpg.json
+///
+/// [directory] Root directory to search recursively
 Future<void> renameIncorrectJsonFiles(final Directory directory) async {
   int renamedCount = 0;
   await for (final FileSystemEntity entity in directory.list(recursive: true)) {
@@ -203,6 +238,12 @@ Future<void> renameIncorrectJsonFiles(final Directory directory) async {
   );
 }
 
+/// Changes file extensions from .MP/.MV to specified extension (usually .mp4)
+///
+/// Updates Media objects in-place to reflect the new file paths
+///
+/// [allMedias] List of Media objects to process
+/// [finalExtension] Target extension (e.g., '.mp4')
 Future<void> changeMPExtensions(
   final List<Media> allMedias,
   final String finalExtension,
@@ -238,12 +279,13 @@ Future<void> changeMPExtensions(
   );
 }
 
-/// Recursively traverses the output [directory] and updates
-/// the creation time of files in batches.
-/// For each file, attempts to set the creation date to match
-/// the last modification date.
-/// Only Windows support for now, using PowerShell.
-//TODO In the future MacOS support is possible if the user has XCode installed
+/// Recursively updates creation time of files to match last modified time
+///
+/// Currently only supports Windows using PowerShell commands.
+/// Processes files in batches to avoid command line length limits.
+///
+/// [directory] Root directory to process recursively
+/// Returns number of files successfully updated
 Future<int> updateCreationTimeRecursively(final Directory directory) async {
   if (!Platform.isWindows) {
     print(
@@ -292,7 +334,10 @@ Future<int> updateCreationTimeRecursively(final Directory directory) async {
   return changedFiles;
 }
 
-//Execute a chunk of commands in PowerShell related with creation time
+/// Executes a batch of PowerShell commands for updating creation times
+///
+/// [commandChunk] String containing multiple PowerShell commands
+/// Returns true if execution was successful
 Future<bool> _executePShellCreationTimeCmd(final String commandChunk) async {
   try {
     final ProcessResult result = await Process.run('powershell', <String>[
@@ -316,16 +361,33 @@ Future<bool> _executePShellCreationTimeCmd(final String commandChunk) async {
   }
 }
 
+/// Creates a Windows shortcut (.lnk file) using PowerShell
+///
+/// [shortcutPath] Path where the shortcut will be created
+/// [targetPath] Path to the target file/folder
+/// Throws Exception if PowerShell command fails
 Future<void> createShortcutWin(
   final String shortcutPath,
   final String targetPath,
 ) async {
   // Make sure parent directory exists
   final Directory parentDir = Directory(p.dirname(shortcutPath));
-  if (!parentDir.existsSync()) {
-    parentDir.createSync(recursive: true);
+  if (!await parentDir.exists()) {
+    await parentDir.create(recursive: true);
   }
-  // Use PowerShell for reliable shortcut creation
+
+  // Ensure target path is absolute
+  final String absoluteTargetPath = p.isAbsolute(targetPath)
+      ? targetPath
+      : p.absolute(targetPath);
+
+  // Verify target exists before creating shortcut
+  if (!File(absoluteTargetPath).existsSync() &&
+      !Directory(absoluteTargetPath).existsSync()) {
+    throw Exception('Target path does not exist: $absoluteTargetPath');
+  }
+
+  ////FIXME currently native mode is disabled due to heap exception issues. Uses Powershell for now.
   final ProcessResult res = await Process.run('powershell.exe', <String>[
     '-ExecutionPolicy',
     'Bypass',
@@ -336,7 +398,7 @@ Future<void> createShortcutWin(
     // ignore: no_adjacent_strings_in_list
     '\$ws = New-Object -ComObject WScript.Shell; '
         '\$s = \$ws.CreateShortcut("$shortcutPath"); '
-        '\$s.TargetPath = "$targetPath"; '
+        '\$s.TargetPath = "$absoluteTargetPath"; '
         '\$s.Save()',
   ]);
   if (res.exitCode != 0) {
@@ -344,9 +406,11 @@ Future<void> createShortcutWin(
   }
 }
 
-///This little helper function replaces the default log function, so it can be used with compiled code
-///Default log level is 'info'. Possible values for 'level' are: 'error', 'warning' and 'info'
-///forcePrint makes the output even when verbose mode is not enabled
+/// Custom logging function with color-coded output levels
+///
+/// [message] The message to log
+/// [level] Log level: 'info' (green), 'warning' (yellow), 'error' (red)
+/// [forcePrint] If true, prints even when verbose mode is disabled
 void log(
   final String message, {
   final String level = 'info',
@@ -369,5 +433,33 @@ void log(
     print(
       '\r$color[${level.toUpperCase()}] $message\x1B[0m',
     ); // Reset color after the message
+  }
+}
+
+/// Validates directory exists and is accessible
+Future<bool> validateDirectory(
+  final Directory dir, {
+  final bool shouldExist = true,
+}) async {
+  final exists = await dir.exists();
+  if (shouldExist && !exists) {
+    error('Directory does not exist: ${dir.path}');
+    return false;
+  }
+  if (!shouldExist && exists) {
+    error('Directory already exists: ${dir.path}');
+    return false;
+  }
+  return true;
+}
+
+/// Safely creates directory with error handling
+Future<bool> safeCreateDirectory(final Directory dir) async {
+  try {
+    await dir.create(recursive: true);
+    return true;
+  } catch (e) {
+    error('Failed to create directory ${dir.path}: $e');
+    return false;
   }
 }

@@ -24,19 +24,34 @@ jobs:
         with:
           body_path: ./body-file.txt
           fail_on_unmatched_files: true
-
   build:
-    needs: make-release
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest, windows-latest ]
-        arch: [x86_64, arm64]
-    runs-on: ${{ matrix.os }}
+        include:
+          # macOS
+          - os: macos-13
+            arch: x86_64
+            runs-on: macos-13
+          - os: macos-latest
+            arch: arm64
+            runs-on: macos-latest
+          # Linux
+          - os: ubuntu-22.04
+            arch: x86_64
+            runs-on: ubuntu-22.04
+          - os: ubuntu-24.04-arm
+            arch: arm64
+            runs-on: ubuntu-24.04-arm
+          # Windows
+          - os: windows-latest
+            arch: x86_64
+            runs-on: windows-latest
+          - os: windows-11-arm
+            arch: arm64
+            runs-on: windows-11-arm
+    runs-on: ${{ matrix.runs-on }}
     steps:
       - uses: actions/checkout@v4.2.2
-      - name: Get clean tag name
-        id: clean_tag
-        run: echo "tag=$(echo ${{ github.ref }} | sed 's/refs\/tags\///')" >> $GITHUB_OUTPUT
       - uses: dart-lang/setup-dart@v1.7.1
       - run: dart pub get
       - name: Get version
@@ -44,43 +59,49 @@ jobs:
         shell: bash
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            VERSION=$(powershell -Command "(Get-Content pubspec.yaml | Select-String '^version:').ToString().Split(':')[1].Trim()")
+          VERSION=$(powershell -Command "(Get-Content pubspec.yaml | Select-String '^version:').ToString().Split(':')[1].Trim()")
           else
-            VERSION=$(grep '^version:' pubspec.yaml | head -n1 | cut -d' ' -f2)
+          VERSION=$(grep '^version:' pubspec.yaml | head -n1 | cut -d' ' -f2)
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
       - name: Build exe
+        id: build_exe
         shell: bash
         run: |
           version=${{ steps.version.outputs.version }}
           osname=${{ matrix.os }}
-          archname=${{ matrix.arch }}
-          if [[ "$osname" == "ubuntu-latest" ]]; then
-            osname=linux
+          # Normalize osname and append arch for output file
+          if [[ "$osname" == "ubuntu-22.04" ]]; then
+            osname=linux-x86_64
+          elif [[ "$osname" == "ubuntu-24.04-arm" ]]; then
+            osname=linux-arm64
           elif [[ "$osname" == "macos-latest" ]]; then
-            osname=macos
+            osname=macos-arm64
+          elif [[ "$osname" == "macos-13" ]]; then
+            osname=macos-x86_64
           elif [[ "$osname" == "windows-latest" ]]; then
-            osname=windows
+            osname=windows-x86_64
+          elif [[ "$osname" == "windows-11-arm" ]]; then
+            osname=windows-arm64
           fi
-          outname=gpth-v$version-release-$osname-$archname
-          if [[ "$osname" == "windows" ]]; then
+          outname=gpth-v$version-release-$osname
+          if [[ "$osname" == windows-* ]]; then
             outname="$outname.exe"
           fi
+          echo "outname=$outname" >> $GITHUB_OUTPUT
           dart compile exe bin/gpth.dart -o ./$outname
-      - name: Add files to GH-Release
-        uses: softprops/action-gh-release@v2.2.2
+      - name: Upload exe as artifact
+        uses: actions/upload-artifact@v4.6.2
         with:
-          files: |
-            ${{ runner.os == 'Linux' && format('./gpth-v{0}-release-linux-{1}', steps.version.outputs.version, matrix.arch) || '' }}
-            ${{ runner.os == 'macOS' && format('./gpth-v{0}-release-macos-{1}', steps.version.outputs.version, matrix.arch) || '' }}
-            ${{ runner.os == 'Windows' && format('./gpth-v{0}-release-windows-{1}.exe', steps.version.outputs.version, matrix.arch) || '' }}
-          fail_on_unmatched_files: true
+          name: ${{ steps.version.outputs.version }}-${{ steps.build_exe.outputs.outname }}
+          path: ./${{ steps.build_exe.outputs.outname }}
+          if-no-files-found: error
       # if linux, upload to aur
       #- name: Generate PKGBUILD
-      #  if: matrix.os == 'ubuntu-latest'
+      #  if: matrix.os == 'ubuntu-22.04'
       #  run: ./scripts/gen-pkgbuild.bash ./gpth-${{ matrix.os }}-${{ matrix.arch }}
       #- name: Upload to AUR
-      #  if: matrix.os == 'ubuntu-latest'
+      #  if: matrix.os == 'ubuntu-22.04'
       #  uses: KSXGitHub/github-actions-deploy-aur@v4.1.1
       #  with:
       #    pkgname: gpth-bin

@@ -62,9 +62,9 @@ class Media {
   Digest? _hash;
 
   /// will be used for finding duplicates/albums
-  /// WARNING: Returns same value for files > [maxFileSize]
-  Digest get hash =>
-      _hash ??= ((firstFile.lengthSync() > maxFileSize) && enforceMaxFileSize)
+  /// WARNING: Returns same value for files > [defaultMaxFileSize]
+  Digest get hash => _hash ??=
+      ((firstFile.lengthSync() > defaultMaxFileSize) && enforceMaxFileSize)
       ? Digest(<int>[0])
       : sha256.convert(firstFile.readAsBytesSync());
 

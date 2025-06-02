@@ -1,20 +1,7 @@
 import 'dart:io';
+import 'package:emoji_regex/emoji_regex.dart' as r;
 import 'package:path/path.dart' as p;
-
 import 'utils.dart';
-
-/// Internal helper function to check if a single text component contains emoji characters.
-///
-/// [text] The text string to check for emoji characters
-/// Returns true if the text contains any emoji (including BMP and surrogate pairs)
-bool _hasUnicodeSurrogatesInText(final String text) {
-  // This regex matches emoji characters more precisely
-  final emojiRegex = RegExp(
-    r'[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F000}-\u{1FAFF}]|[\u{1F600}-\u{1F64F}]|[\u{2122}\u{2139}\u{2194}-\u{2199}\u{21A9}-\u{21AA}\u{231A}-\u{231B}\u{2328}\u{23CF}\u{23E9}-\u{23F3}\u{23F8}-\u{23FA}\u{24C2}\u{25AA}-\u{25AB}\u{25B6}\u{25C0}\u{25FB}-\u{25FE}\u{2600}-\u{2604}\u{260E}\u{2611}\u{2614}-\u{2615}\u{2618}\u{261D}\u{2620}\u{2622}-\u{2623}\u{2626}\u{262A}\u{262E}-\u{262F}\u{2638}-\u{263A}\u{2640}\u{2642}\u{2648}-\u{2653}\u{265F}-\u{2660}\u{2663}\u{2665}-\u{2666}\u{2668}\u{267B}\u{267E}-\u{267F}\u{2692}-\u{2697}\u{2699}\u{269B}-\u{269C}\u{26A0}-\u{26A1}\u{26AA}-\u{26AB}\u{26B0}-\u{26B1}\u{26BD}-\u{26BE}\u{26C4}-\u{26C5}\u{26C8}\u{26CE}-\u{26CF}\u{26D1}\u{26D3}-\u{26D4}\u{26E9}-\u{26EA}\u{26F0}-\u{26F5}\u{26F7}-\u{26FA}\u{26FD}\u{2702}\u{2705}\u{2708}-\u{270D}\u{270F}]',
-    unicode: true,
-  );
-  return emojiRegex.hasMatch(text);
-}
 
 /// Encodes emoji characters in the album directory name to hex representation and renames the folder on disk if needed.
 ///
@@ -22,7 +9,10 @@ bool _hasUnicodeSurrogatesInText(final String text) {
 /// Returns the new (possibly hex-encoded) directory.
 Directory encodeAndRenameAlbumIfEmoji(final Directory albumDir) {
   final String originalName = p.basename(albumDir.path);
-  if (!_hasUnicodeSurrogatesInText(originalName)) {
+
+  if (!r.emojiRegex().hasMatch(originalName) &&
+      !RegExp(r'\u{FE0F}|\u{FE0E}', unicode: true).hasMatch(originalName)) {
+    //Check for emojis or invisible character
     return albumDir;
   }
 
@@ -49,7 +39,8 @@ Directory encodeAndRenameAlbumIfEmoji(final Directory albumDir) {
     }
 
     // Handle BMP emoji
-    if (_hasUnicodeSurrogatesInText(char)) {
+    if (r.emojiRegex().hasMatch(char) ||
+        RegExp(r'\u{FE0F}|\u{FE0E}', unicode: true).hasMatch(char)) {
       cleanName.write('_0x${codeUnit.toRadixString(16)}_');
     } else {
       cleanName.write(char);
@@ -58,7 +49,13 @@ Directory encodeAndRenameAlbumIfEmoji(final Directory albumDir) {
 
   final String newPath = p.join(parentPath, cleanName.toString());
   if (albumDir.path != newPath) {
-    albumDir.renameSync(newPath);
+    try {
+      albumDir.renameSync(newPath);
+    } catch (e) {
+      Exception(
+        'Error while trying to rename directory with emoji. Does not Exist!',
+      );
+    }
   }
   return Directory(newPath);
 }
@@ -83,6 +80,9 @@ String decodeAndRestoreAlbumEmoji(final String encodedPath) {
 }
 
 /// Internal helper function to decode hex-encoded emoji characters back to UTF-8.
+///
+/// Processes strings containing patterns like "_0x1f600_" and converts them
+/// back to their corresponding Unicode characters.
 ///
 /// [component] A string potentially containing hex-encoded emojis
 /// Returns the string with all hex-encoded emojis converted back to UTF-8

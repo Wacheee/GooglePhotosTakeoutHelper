@@ -7,6 +7,12 @@ import 'utils.dart';
 
 ExiftoolInterface? exiftool;
 
+/// Initializes the global ExiftoolInterface instance
+///
+/// Attempts to find and initialize exiftool, setting the global
+/// [exifToolInstalled] flag accordingly.
+///
+/// Returns true if exiftool was found and initialized successfully
 Future<bool> initExiftool() async {
   exiftool = await ExiftoolInterface.find();
   if (exiftool != null) {
@@ -83,7 +89,29 @@ class ExiftoolInterface {
 
   /// Reads all EXIF data from [file] and returns as a Map
   Future<Map<String, dynamic>> readExif(final File file) async {
-    final result = await Process.run(exiftoolPath, ['-j', '-n', file.path]);
+    // Check if file exists before trying to read it
+    if (!await file.exists()) {
+      throw FileSystemException('File not found', file.path);
+    }
+
+    final args = ['-j', '-n'];
+
+    // On Windows, explicitly set UTF-8 encoding for Unicode character support
+    if (Platform.isWindows) {
+      args.addAll(['-charset', 'filename=UTF8']);
+      args.addAll(['-charset', 'exif=UTF8']);
+    }
+
+    args.add(file.path);
+
+    final result = await Process.run(
+      exiftoolPath,
+      args,
+      // Ensure UTF-8 encoding for the process
+      stdoutEncoding: utf8,
+      stderrEncoding: utf8,
+    );
+
     if (result.exitCode != 0) {
       log(
         'exiftool returned a non 0 code for reading ${file.path} with error: ${result.stderr}',
@@ -117,13 +145,34 @@ class ExiftoolInterface {
   ) async {
     final String filepath = file.path;
 
+    // Check if file exists before trying to read it
+    if (!await file.exists()) {
+      throw FileSystemException('File not found', file.path);
+    }
+
     if (tags.isEmpty) {
       return <String, dynamic>{};
     }
+
     final args = <String>['-j', '-n'];
+
+    // On Windows, explicitly set UTF-8 encoding for Unicode character support
+    if (Platform.isWindows) {
+      args.addAll(['-charset', 'filename=UTF8']);
+      args.addAll(['-charset', 'exif=UTF8']);
+    }
+
     args.addAll(tags.map((final tag) => '-$tag'));
     args.add(filepath);
-    final result = await Process.run(exiftoolPath, args);
+
+    final result = await Process.run(
+      exiftoolPath,
+      args,
+      // Ensure UTF-8 encoding for the process
+      stdoutEncoding: utf8,
+      stderrEncoding: utf8,
+    );
+
     if (result.exitCode != 0) {
       log(
         'exiftool returned a non 0 code for reading ${file.path} with error: ${result.stderr}',
@@ -157,13 +206,34 @@ class ExiftoolInterface {
   ) async {
     final String filepath = file.path;
 
+    // Check if file exists before trying to write to it
+    if (!await file.exists()) {
+      throw FileSystemException('File not found', file.path);
+    }
+
     final args = <String>['-overwrite_original'];
+
+    // On Windows, explicitly set UTF-8 encoding for Unicode character support
+    if (Platform.isWindows) {
+      args.addAll(['-charset', 'filename=UTF8']);
+      args.addAll(['-charset', 'exif=UTF8']);
+    }
+
     tags.forEach((final tag, final value) => args.add('-$tag=$value'));
     args.add(filepath);
-    final result = await Process.run(exiftoolPath, args);
+
+    final result = await Process.run(
+      exiftoolPath,
+      args,
+      // Ensure UTF-8 encoding for the process
+      stdoutEncoding: utf8,
+      stderrEncoding: utf8,
+    );
+
     if (result.exitCode != 0) {
       log(
-        '[Step 5/8] Writing exif to file ${file.path} failed. ${result.stderr}',
+        '[Step 5/8] Writing exif to file ${file.path} failed.'
+        '\n${result.stderr.replaceAll(" - ${file.path.replaceAll('\\', '/')}", "")}',
         level: 'error',
         forcePrint: true,
       );
@@ -176,7 +246,12 @@ class ExiftoolInterface {
   }
 }
 
-/// Helper to find an executable in PATH (like 'which' or 'where')
+/// Cross-platform helper to find an executable in system PATH
+///
+/// Similar to Unix 'which' or Windows 'where' commands.
+///
+/// [bin] Executable name to search for
+/// Returns full path to executable or null if not found
 Future<String?> _which(final String bin) async {
   final result = await Process.run(Platform.isWindows ? 'where' : 'which', [
     bin,

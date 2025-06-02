@@ -50,17 +50,21 @@ const Map<String, String> albumOptions = <String, String>{
 /// Whether we are, indeed, running interactive (or not)
 bool indeed = false;
 
-/// Shorthand for Future.delayed
+/// Pauses execution for specified number of seconds
+///
+/// [seconds] Number of seconds to sleep (can be fractional)
 Future<void> sleep(final num seconds) =>
     Future<void>.delayed(Duration(milliseconds: (seconds * 1000).toInt()));
 
+/// Displays a prompt and waits for user to press enter
 void pressEnterToContinue() {
   print('[press enter to continue]');
   stdin.readLineSync();
 }
 
-// this can't return null on error because it would be same for blank
-// (pure enter) and "fdsfsdafs" - and we want to detect enters
+/// Reads user input and normalizes it (removes brackets, lowercase, trim)
+///
+/// Returns the normalized input string
 Future<String> askForInt() async => stdin
     .readLineSync()!
     .replaceAll('[', '')
@@ -68,6 +72,7 @@ Future<String> askForInt() async => stdin
     .toLowerCase()
     .trim();
 
+/// Displays greeting message and introduction to the tool
 Future<void> greet() async {
   print('GooglePhotosTakeoutHelper v$version');
   await sleep(1);
@@ -102,6 +107,10 @@ Future<void> nothingFoundMessage() async {
   print('After fixing this, go ahead and try again :)');
 }
 
+/// Prompts user to select input directory using file picker dialog
+///
+/// Returns the selected Directory
+/// Throws if dialog fails or user cancels
 Future<Directory> getInputDir() async {
   print('Select the directory where you unzipped all your takeout zips');
   print('(Make sure they are merged => there is only one "Takeout" folder!)');
@@ -173,7 +182,10 @@ Future<List<File>> getZips() async {
   return files.files.map((final PlatformFile e) => File(e.path!)).toList();
 }
 
-/// Asks user for output folder with ui dialogs
+/// Prompts user to select output directory using file picker dialog
+///
+/// Returns the selected Directory
+/// Recursively asks again if dialog fails
 Future<Directory> getOutput() async {
   print(
     'Now, select output folder - all photos will be moved there\n'
@@ -194,6 +206,13 @@ Future<Directory> getOutput() async {
   return Directory(dir);
 }
 
+/// Asks user how to organize photos by date folders
+///
+/// Returns:
+/// - 0: One big folder
+/// - 1: Year folders
+/// - 2: Year/month folders
+/// - 3: Year/month/day folders
 Future<num> askDivideDates() async {
   print(
     'Do you want your photos in one big chronological folder, '
@@ -225,6 +244,9 @@ Future<num> askDivideDates() async {
   }
 }
 
+/// Asks user whether to remove "supplemental-metadata" suffix from JSON files
+///
+/// Returns true if suffix should be removed
 Future<bool> askModifyJson() async {
   print(
     'Check if your .json files of your photos contains "supplemental-metadata" '
@@ -252,6 +274,31 @@ Future<bool> askModifyJson() async {
   }
 }
 
+/// Prompts user to choose album handling behavior
+///
+/// Returns one of the album option keys from [albumOptions]
+///
+/// Available album modes:
+///
+/// - **shortcut**: Creates shortcuts/symlinks from album folders to the main file in ALL_PHOTOS.
+///   The original file is moved to ALL_PHOTOS, and shortcuts are created in album folders.
+///   This saves space while maintaining album organization.
+///
+/// - **duplicate-copy**: Creates actual copies of files in both ALL_PHOTOS and album folders.
+///   Each file appears in ALL_PHOTOS and in every album it belongs to as separate physical files.
+///   Uses more disk space but provides complete independence between folders.
+///
+/// - **reverse-shortcut**: The opposite of shortcut mode. Files remain in album folders,
+///   and shortcuts are created in ALL_PHOTOS pointing to the album locations.
+///   Maintains files in their album context while providing access via ALL_PHOTOS.
+///
+/// - **json**: Creates a single ALL_PHOTOS folder with all files, plus an albums-info.json
+///   file that contains metadata about which albums each file belonged to.
+///   Most space-efficient option with programmatic album information.
+///
+/// - **nothing**: Ignores albums entirely. Only creates ALL_PHOTOS folder with files
+///   from year folders. Album-only files are skipped unless they have null keys assigned.
+///   Simplest option for users who don't care about album organization.
 Future<String> askAlbums() async {
   print('What should be done with albums?');
   int i = 0;
@@ -296,6 +343,9 @@ Future<bool> askForCleanOutput() async {
   }
 }
 
+/// Asks user whether to transform Pixel Motion Photo extensions to .mp4
+///
+/// Returns true if .MP/.MV files should be renamed to .mp4
 Future<bool> askTransformPixelMP() async {
   print(
     'Pixel Motion Pictures are saved with the .MP or .MV '
@@ -320,6 +370,9 @@ Future<bool> askTransformPixelMP() async {
   }
 }
 
+/// Asks user whether to update creation times on Windows
+///
+/// Returns true if creation times should be synced with modified times
 Future<bool> askChangeCreationTime() async {
   print(
     'This program fixes file "modified times". '

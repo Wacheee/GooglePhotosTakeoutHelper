@@ -12,9 +12,29 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        arch: [x86_64, arm64]
-    runs-on: ${{ matrix.os }}
+        include:
+          # macOS
+          - os: macos-13
+            arch: x86_64
+            runs-on: macos-13
+          - os: macos-latest
+            arch: arm64
+            runs-on: macos-latest
+          # Linux
+          - os: ubuntu-22.04
+            arch: x86_64
+            runs-on: ubuntu-22.04
+          - os: ubuntu-24.04-arm
+            arch: arm64
+            runs-on: ubuntu-24.04-arm
+          # Windows
+          - os: windows-latest
+            arch: x86_64
+            runs-on: windows-latest
+          - os: windows-11-arm
+            arch: arm64
+            runs-on: windows-11-arm
+    runs-on: ${{ matrix.runs-on }}
     steps:
       - uses: actions/checkout@v4.2.2
       - uses: dart-lang/setup-dart@v1.7.1
@@ -30,33 +50,34 @@ jobs:
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
       - name: Build exe
+        id: build_exe
         shell: bash
         run: |
           version=${{ steps.version.outputs.version }}
           osname=${{ matrix.os }}
-          archname=${{ matrix.arch }}
-          # Normalize osname for output file
-          if [[ "$osname" == "ubuntu-latest" ]]; then
-            osname=linux
+          # Normalize osname and append arch for output file
+          if [[ "$osname" == "ubuntu-22.04" ]]; then
+            osname=linux-x86_64
+          elif [[ "$osname" == "ubuntu-24.04-arm" ]]; then
+            osname=linux-arm64
           elif [[ "$osname" == "macos-latest" ]]; then
-            osname=macos
+            osname=macos-arm64
+          elif [[ "$osname" == "macos-13" ]]; then
+            osname=macos-x86_64
           elif [[ "$osname" == "windows-latest" ]]; then
-            osname=windows
+            osname=windows-x86_64
+          elif [[ "$osname" == "windows-11-arm" ]]; then
+            osname=windows-arm64
           fi
-          outname=gpth-v$version-nightly-$osname-$archname
-          if [[ "$osname" == "windows" ]]; then
+          outname=gpth-v$version-nightly-$osname
+          if [[ "$osname" == windows-* ]]; then
             outname="$outname.exe"
           fi
+          echo "outname=$outname" >> $GITHUB_OUTPUT
           dart compile exe bin/gpth.dart -o ./$outname
       - name: Upload exe as artifact
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: gpth-v${{ steps.version.outputs.version }}-nightly-${{ matrix.os == 'ubuntu-latest' && 'linux' || matrix.os == 'macos-latest' && 'macos' || matrix.os == 'windows-latest' && 'windows' }}-${{ matrix.arch }}
-          path: |
-            ./gpth-v${{ steps.version.outputs.version }}-nightly-linux-${{ matrix.arch }}
-            ./gpth-v${{ steps.version.outputs.version }}-nightly-linux-${{ matrix.arch }}.exe
-            ./gpth-v${{ steps.version.outputs.version }}-nightly-macos-${{ matrix.arch }}
-            ./gpth-v${{ steps.version.outputs.version }}-nightly-macos-${{ matrix.arch }}.exe
-            ./gpth-v${{ steps.version.outputs.version }}-nightly-windows-${{ matrix.arch }}
-            ./gpth-v${{ steps.version.outputs.version }}-nightly-windows-${{ matrix.arch }}.exe
+          name: ${{ steps.version.outputs.version }}-${{ steps.build_exe.outputs.outname }}
+          path: ./${{ steps.build_exe.outputs.outname }}
           if-no-files-found: error
