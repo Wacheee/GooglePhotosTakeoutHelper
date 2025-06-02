@@ -96,6 +96,12 @@ jobs:
           name: ${{ steps.version.outputs.version }}-${{ steps.build_exe.outputs.outname }}
           path: ./${{ steps.build_exe.outputs.outname }}
           if-no-files-found: error
+      - name: Add files to GH-Release
+        uses: softprops/action-gh-release@v2.2.2
+        with:
+          # this supports globs :>
+          files: ./gpth-*
+          fail_on_unmatched_files: true
       # if linux, upload to aur
       #- name: Generate PKGBUILD
       #  if: matrix.os == 'ubuntu-22.04'
