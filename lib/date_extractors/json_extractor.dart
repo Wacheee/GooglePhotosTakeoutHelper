@@ -9,7 +9,7 @@ import 'package:unorm_dart/unorm_dart.dart' as unorm;
 
 /// Finds corresponding json file with info and gets 'photoTakenTime' from it
 Future<DateTime?> jsonExtractor(File file, {bool tryhard = false}) async {
-  final jsonFile = await _jsonForFile(file, tryhard: tryhard);
+  final jsonFile = await jsonFileFor(file, tryhard: tryhard);
   if (jsonFile == null) return null;
   try {
     final data = jsonDecode(await jsonFile.readAsString());
@@ -29,7 +29,7 @@ Future<DateTime?> jsonExtractor(File file, {bool tryhard = false}) async {
   }
 }
 
-Future<File?> _jsonForFile(File file, {required bool tryhard}) async {
+Future<File?> jsonFileFor(File file, {required bool tryhard}) async {
   final dir = Directory(p.dirname(file.path));
   var name = p.basename(file.path);
   // will try all methods to strip name to find json

@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:gpth/interactive.dart' as interactive;
 import 'package:gpth/utils.dart';
+import 'package:gpth/gps_writer.dart';
 import 'package:path/path.dart' as p;
 
 import 'media.dart';
@@ -241,6 +242,12 @@ Stream<int> moveFiles(
         }
       } catch (e) {
         print("WARNING: Can't set modification time on $result: $e");
+      }
+
+      try {
+        await writeGpsFromJson(result);
+      } catch (e) {
+        print("WARNING: Can't write GPS data for $result: $e");
       }
 
       // one copy/move/whatever - one yield
